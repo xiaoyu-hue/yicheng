@@ -24,7 +24,11 @@ func main() {
 		if len(args) > 2 {
 			mode = args[2].String()
 		}
-		return GenerateMode(seed, args[1].String(), mode).SVG()
+		theme := ""
+		if len(args) > 3 {
+			theme = args[3].String()
+		}
+		return GenerateFull(seed, args[1].String(), mode, theme).SVG()
 	}))
 	select {} // 常驻，等待页面调用
 }

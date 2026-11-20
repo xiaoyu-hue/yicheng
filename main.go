@@ -29,6 +29,7 @@ func main() {
 	seed := flag.Int64("seed", 20261120, "种子（同种子同城）")
 	size := flag.String("size", "city", "规模：town 小城 / city 中城 / capital 大城")
 	mode := flag.String("mode", "organic", "格局：organic 山水 / grid 棋盘")
+	theme := flag.String("theme", "", "皮肤：空 宣纸 / spring 春 / autumn 秋 / winter 冬 / night 夜")
 	out := flag.String("out", "", "把 SVG 写到该文件后退出")
 	check := flag.Bool("check", false, "自检同种子同城后退出")
 	flag.Parse()
@@ -52,7 +53,7 @@ func main() {
 		os.Exit(1)
 	}
 	if *out != "" {
-		svg := GenerateMode(*seed, *size, *mode).SVG()
+		svg := GenerateFull(*seed, *size, *mode, *theme).SVG()
 		if err := os.WriteFile(*out, []byte(svg), 0o644); err != nil {
 			log.Fatal(err)
 		}
@@ -74,7 +75,7 @@ func main() {
 		if err != nil {
 			s = 20261120
 		}
-		svg := GenerateMode(s, r.URL.Query().Get("size"), r.URL.Query().Get("mode")).SVG()
+		svg := GenerateFull(s, r.URL.Query().Get("size"), r.URL.Query().Get("mode"), r.URL.Query().Get("theme")).SVG()
 		w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
 		_, _ = w.Write([]byte(svg))
 	})

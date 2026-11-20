@@ -40,28 +40,30 @@ type Field struct {
 }
 
 type City struct {
-	Seed      int64
-	Size      string
-	SizeLabel string
-	Mode      string // organic 山水格局 / grid 棋盘格局
-	ModeLabel string
-	Name      string // 城名，如「沧澜城」
-	W, H      float64
-	Center    Pt
-	R         float64
-	Boundary  []Pt
-	Cells     [][]Pt
-	Cents     []Pt
-	Inner     []int
-	Wards     map[int]Ward
-	WallEdges [][2]Pt
-	Gates     []Gate
-	Roads     [][]Pt
-	Ring      []Pt
-	River     []Pt
-	Buildings []Building
-	Fields    []Field    // 城外田垄（2.0）
-	Villages  []Building // 城外村落屋舍（2.0，借用 Building 形状）
+	Seed       int64
+	Size       string
+	SizeLabel  string
+	Mode       string // organic 山水格局 / grid 棋盘格局
+	ModeLabel  string
+	Theme      string // 渲染主题（皮肤）："" 宣纸 / spring 春 / autumn 秋 / winter 冬 / night 夜
+	ThemeLabel string
+	Name       string // 城名，如「沧澜城」
+	W, H       float64
+	Center     Pt
+	R          float64
+	Boundary   []Pt
+	Cells      [][]Pt
+	Cents      []Pt
+	Inner      []int
+	Wards      map[int]Ward
+	WallEdges  [][2]Pt
+	Gates      []Gate
+	Roads      [][]Pt
+	Ring       []Pt
+	River      []Pt
+	Buildings  []Building
+	Fields     []Field    // 城外田垄（2.0）
+	Villages   []Building // 城外村落屋舍（2.0，借用 Building 形状）
 }
 
 // ---------- 几何工具 ----------
@@ -182,6 +184,29 @@ var sizeSpecs = map[string]sizeSpec{
 
 // Generate 山水格局（默认）：有机坊界的古城。
 func Generate(seed int64, size string) *City { return GenerateMode(seed, size, "organic") }
+
+// GenerateFull 在 GenerateMode 之上叠加渲染主题（皮肤）。
+// 主题只影响渲染层配色，不参与生成——同种子同格局换皮肤，城的布局不变。
+func GenerateFull(seed int64, size, mode, theme string) *City {
+	c := GenerateMode(seed, size, mode)
+	c.Theme, c.ThemeLabel = normalizeTheme(theme)
+	return c
+}
+
+// normalizeTheme 归一化主题名，未知值按默认宣纸处理。
+func normalizeTheme(theme string) (string, string) {
+	switch theme {
+	case "spring":
+		return "spring", "春"
+	case "autumn":
+		return "autumn", "秋"
+	case "winter":
+		return "winter", "冬"
+	case "night":
+		return "night", "夜"
+	}
+	return "", ""
+}
 
 // GenerateMode 按格局生成：organic 山水 / grid 棋盘，其余值按山水处理。
 func GenerateMode(seed int64, size, mode string) *City {

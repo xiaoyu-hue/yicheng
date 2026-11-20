@@ -48,6 +48,15 @@
       <option value="grid">棋盘格局</option>
     </select>
   </label>
+  <label>皮肤
+    <select id="themeSel">
+      <option value="" selected>宣纸</option>
+      <option value="spring">春</option>
+      <option value="autumn">秋</option>
+      <option value="winter">冬</option>
+      <option value="night">夜</option>
+    </select>
+  </label>
   <button id="btnPNG">下载 PNG</button>
   <button id="btnSVG">下载 SVG</button>
   <button id="btnLink">复制城链接</button>
@@ -63,6 +72,7 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
   const seedInput = document.getElementById('seedInput');
   const sizeSel = document.getElementById('sizeSel');
   const modeSel = document.getElementById('modeSel');
+  const themeSel = document.getElementById('themeSel');
   let curSeed = 20261120, curSVG = '';
 
   // 种子链接：网址带 ?seed= 与 &size=，打开链接直达那座城
@@ -71,29 +81,31 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
   if (!Number.isNaN(pSeed)) curSeed = pSeed;
   if (['town', 'city', 'capital'].includes(params.get('size'))) sizeSel.value = params.get('size');
   if (params.get('mode') === 'grid') modeSel.value = 'grid';
+  if (['spring', 'autumn', 'winter', 'night'].includes(params.get('theme'))) themeSel.value = params.get('theme');
 
   function syncURL() {
     try {
-      history.replaceState(null, '', location.pathname + '?seed=' + curSeed + '&size=' + sizeSel.value + '&mode=' + modeSel.value);
+      history.replaceState(null, '', location.pathname + '?seed=' + curSeed + '&size=' + sizeSel.value + '&mode=' + modeSel.value + (themeSel.value ? '&theme=' + themeSel.value : ''));
     } catch (e) { /* 个别浏览器环境不允许改地址，忽略 */ }
   }
 
-  async function load(seed, size, mode) {
+  async function load(seed, size, mode, theme) {
     stage.textContent = '正在建城…';
-    const res = await fetch('/api/city?seed=' + encodeURIComponent(seed) + '&size=' + encodeURIComponent(size) + '&mode=' + encodeURIComponent(mode));
+    const res = await fetch('/api/city?seed=' + encodeURIComponent(seed) + '&size=' + encodeURIComponent(size) + '&mode=' + encodeURIComponent(mode) + '&theme=' + encodeURIComponent(theme));
     curSVG = await res.text();
     curSeed = seed;
     seedInput.value = seed;
     stage.innerHTML = curSVG;
     syncURL();
   }
-  document.getElementById('btnNew').onclick = () => load(Math.floor(Math.random() * 900000000) + 1, sizeSel.value, modeSel.value);
+  document.getElementById('btnNew').onclick = () => load(Math.floor(Math.random() * 900000000) + 1, sizeSel.value, modeSel.value, themeSel.value);
   document.getElementById('btnGo').onclick = () => {
     const v = parseInt(seedInput.value, 10);
-    if (!Number.isNaN(v)) load(v, sizeSel.value, modeSel.value);
+    if (!Number.isNaN(v)) load(v, sizeSel.value, modeSel.value, themeSel.value);
   };
-  sizeSel.onchange = () => load(curSeed, sizeSel.value, modeSel.value);
-  modeSel.onchange = () => load(curSeed, sizeSel.value, modeSel.value);
+  sizeSel.onchange = () => load(curSeed, sizeSel.value, modeSel.value, themeSel.value);
+  modeSel.onchange = () => load(curSeed, sizeSel.value, modeSel.value, themeSel.value);
+  themeSel.onchange = () => load(curSeed, sizeSel.value, modeSel.value, themeSel.value);
   document.getElementById('btnSVG').onclick = () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([curSVG], { type: 'image/svg+xml' }));
@@ -134,7 +146,7 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
     btn.textContent = '已复制 ✓';
     setTimeout(() => { btn.textContent = '复制城链接'; }, 1600);
   };
-  load(curSeed, sizeSel.value, modeSel.value);
+  load(curSeed, sizeSel.value, modeSel.value, themeSel.value);
 </script>
 </body>
 </html>
