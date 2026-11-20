@@ -33,10 +33,18 @@ type Gate struct {
 
 type Building struct{ CX, CY, HW, HH, Ang float64 }
 
+// Field 城外田垄：一块带朝向的田地（渲染层按 Tone 选两种田色）。
+type Field struct {
+	Poly []Pt
+	Tone int
+}
+
 type City struct {
 	Seed      int64
 	Size      string
 	SizeLabel string
+	Mode      string // organic 山水格局 / grid 棋盘格局
+	ModeLabel string
 	Name      string // 城名，如「沧澜城」
 	W, H      float64
 	Center    Pt
@@ -52,6 +60,8 @@ type City struct {
 	Ring      []Pt
 	River     []Pt
 	Buildings []Building
+	Fields    []Field    // 城外田垄（2.0）
+	Villages  []Building // 城外村落屋舍（2.0，借用 Building 形状）
 }
 
 // ---------- 几何工具 ----------
@@ -134,6 +144,20 @@ var cityHeads = []string{"沧澜", "临渊", "望舒", "安澜", "云津", "沐�
 var fangNames = []string{"安平坊", "长乐坊", "永宁坊", "兴善坊", "清泰坊", "怀德坊", "崇仁坊", "延福坊",
 	"嘉会坊", "丰邑坊", "临川坊", "望京坊", "归义坊", "敦化坊", "昭庆坊", "景行坊", "承晖坊", "乐善坊"}
 var templeNames = []string{"栖云寺", "宝林寺", "清凉寺", "慈恩寺", "栖霞寺"}
+
+// fangName 取第 k 个民居坊名：坊名库用完一轮后，后续轮次改后缀为「里」「巷」，保证全城不重名。
+func fangName(pool []string, k int) string {
+	base := pool[k%len(pool)]
+	switch k / len(pool) {
+	case 0:
+		return base
+	case 1:
+		return base[:len(base)-len("坊")] + "里"
+	default:
+		return base[:len(base)-len("坊")] + "巷"
+	}
+}
+
 var gardenNames = []string{"听雨园", "半亩园", "漱石园", "沧浪亭园", "怡园"}
 var captions = []string{
 	"城外有河，城里有坊——每换一颗种子，就是一座新城。",
@@ -156,14 +180,22 @@ var sizeSpecs = map[string]sizeSpec{
 	"capital": {"大城", 340, [][2]float64{{7, 0.34}, {13, 0.64}, {17, 0.94}}},
 }
 
-func Generate(seed int64, size string) *City {
+// Generate 山水格局（默认）：有机坊界的古城。
+func Generate(seed int64, size string) *City { return GenerateMode(seed, size, "organic") }
+
+// GenerateMode 按格局生成：organic 山水 / grid 棋盘，其余值按山水处理。
+func GenerateMode(seed int64, size, mode string) *City {
+	if mode == "grid" {
+		return generateGrid(seed, size)
+	}
 	spec, ok := sizeSpecs[size]
 	if !ok {
 		size, spec = "city", sizeSpecs["city"]
 	}
 	rng := rand.New(rand.NewSource(seed))
 	c := &City{Seed: seed, Size: size, SizeLabel: spec.label, W: 1280, H: 960,
-		Center: Pt{640, 480}, R: spec.r, Wards: map[int]Ward{}}
+		Center: Pt{640, 480}, R: spec.r, Wards: map[int]Ward{},
+		Mode: "organic", ModeLabel: "山水格局"}
 	c.Name = cityHeads[rng.Intn(len(cityHeads))] + "城"
 
 	// 1) 撒点：中心一点 + 若干环
@@ -442,7 +474,7 @@ func Generate(seed int64, size string) *City {
 				continue
 			}
 		}
-		c.Wards[i] = Ward{"民居", fangs[fi%len(fangs)], "#f0e4c6"}
+		c.Wards[i] = Ward{"民居", fangName(fangs, fi), "#f0e4c6"}
 		fi++
 	}
 
@@ -477,5 +509,176 @@ func Generate(seed int64, size string) *City {
 		y := 852 + 30*math.Sin(x/180+phase) + 10*math.Sin(x/57+phase*2)
 		c.River = append(c.River, Pt{x, y})
 	}
+
+	// 8) 城外景（独立随机源，不扰动上面的生成序列）
+	addOutskirts(c)
+	return c
+}
+
+// ---------- 城外景（两种格局共用） ----------
+
+func clampF(v, lo, hi float64) float64 { return math.Max(lo, math.Min(hi, v)) }
+
+// addOutskirts 生成城外田垄与村落。用独立随机源（由种子派生），
+// 不得改用生成主流程的 rng——那会扰动城内生成序列，让旧种子变城。
+func addOutskirts(c *City) {
+	rng := rand.New(rand.NewSource(c.Seed*31 + 20261120))
+	// 田垄 7 块，散布城外一圈；落到河道高度的往北挪开
+	for i := 0; i < 7; i++ {
+		ang := rng.Float64() * 2 * math.Pi
+		rr := c.R * (1.42 + rng.Float64()*0.33)
+		fx := clampF(c.Center.X+rr*math.Cos(ang), 130, c.W-130)
+		fy := clampF(c.Center.Y+rr*math.Sin(ang), 140, c.H-120)
+		if fy > 770 {
+			fy -= 180
+		}
+		w, h := 64+rng.Float64()*72, 40+rng.Float64()*38
+		rot := (rng.Float64() - 0.5) * 0.9
+		cs, sn := math.Cos(rot), math.Sin(rot)
+		var poly []Pt
+		for _, s := range [][2]float64{{-1, -1}, {1, -1}, {1, 1}, {-1, 1}} {
+			lx, ly := s[0]*w/2, s[1]*h/2
+			poly = append(poly, Pt{fx + lx*cs - ly*sn, fy + lx*sn + ly*cs})
+		}
+		c.Fields = append(c.Fields, Field{Poly: poly, Tone: rng.Intn(2)})
+	}
+	// 村落两簇
+	for v := 0; v < 2; v++ {
+		ang := rng.Float64() * 2 * math.Pi
+		rr := c.R * (1.34 + rng.Float64()*0.22)
+		vx := clampF(c.Center.X+rr*math.Cos(ang), 110, c.W-110)
+		vy := clampF(c.Center.Y+rr*math.Sin(ang), 120, c.H-130)
+		if vy > 770 {
+			vy -= 180
+		}
+		n := 9 + rng.Intn(5)
+		for i := 0; i < n; i++ {
+			px := clampF(vx+(rng.Float64()-0.5)*88, 50, c.W-50)
+			py := clampF(vy+(rng.Float64()-0.5)*66, 60, c.H-50)
+			c.Villages = append(c.Villages, Building{px, py,
+				4.5 + rng.Float64()*2.5, 3 + rng.Float64()*1.6, rng.Float64() * math.Pi})
+		}
+	}
+}
+
+// ---------- 棋盘格局（长安风） ----------
+
+type gridSpec struct {
+	n int     // 每边坊数
+	s float64 // 城半边长
+}
+
+var gridSpecs = map[string]gridSpec{
+	"town":    {5, 252},
+	"city":    {6, 268},
+	"capital": {7, 288},
+}
+
+// generateGrid 棋盘格局：方正城墙、棋盘街坊、十字大道。
+// 只替换「切坊」方式，派坊、屋舍、城南河、城外景与山水格局共用同一套规矩。
+func generateGrid(seed int64, size string) *City {
+	spec, ok := sizeSpecs[size]
+	if !ok {
+		size, spec = "city", sizeSpecs["city"]
+	}
+	gs := gridSpecs[size]
+	rng := rand.New(rand.NewSource(seed))
+	c := &City{Seed: seed, Size: size, SizeLabel: spec.label, W: 1280, H: 960,
+		Center: Pt{640, 480}, R: gs.s, Wards: map[int]Ward{},
+		Mode: "grid", ModeLabel: "棋盘格局"}
+	c.Name = cityHeads[rng.Intn(len(cityHeads))] + "城"
+
+	n := gs.n
+	cell := 2 * gs.s / float64(n)
+	cx, cy := c.Center.X, c.Center.Y
+	ox, oy := cx-gs.s, cy-gs.s
+	idx := func(r, col int) int { return r*n + col }
+	for r := 0; r < n; r++ {
+		for col := 0; col < n; col++ {
+			x0, y0 := ox+float64(col)*cell, oy+float64(r)*cell
+			c.Cells = append(c.Cells, []Pt{{x0, y0}, {x0 + cell, y0}, {x0 + cell, y0 + cell}, {x0, y0 + cell}})
+			c.Cents = append(c.Cents, Pt{x0 + cell/2, y0 + cell/2})
+			c.Inner = append(c.Inner, idx(r, col))
+		}
+	}
+	// 城界：切角方形
+	S, ch := gs.s, 20.0
+	c.Boundary = []Pt{
+		{cx - S + ch, cy - S}, {cx + S - ch, cy - S}, {cx + S, cy - S + ch}, {cx + S, cy + S - ch},
+		{cx + S - ch, cy + S}, {cx - S + ch, cy + S}, {cx - S, cy + S - ch}, {cx - S, cy - S + ch},
+	}
+	// 城墙：四边各 n 段
+	for i := 0; i < n; i++ {
+		t0, t1 := -S+float64(i)*cell, -S+float64(i+1)*cell
+		c.WallEdges = append(c.WallEdges,
+			[2]Pt{{cx + t0, cy - S}, {cx + t1, cy - S}},
+			[2]Pt{{cx + t0, cy + S}, {cx + t1, cy + S}},
+			[2]Pt{{cx - S, cy + t0}, {cx - S, cy + t1}},
+			[2]Pt{{cx + S, cy + t0}, {cx + S, cy + t1}})
+	}
+	// 城门：四边正中
+	for _, g := range []struct {
+		name string
+		mid  Pt
+		out  Pt
+		cell int
+	}{
+		{"东门", Pt{cx + S, cy}, Pt{1, 0}, idx(n/2, n-1)},
+		{"南门", Pt{cx, cy + S}, Pt{0, 1}, idx(n-1, n/2)},
+		{"西门", Pt{cx - S, cy}, Pt{-1, 0}, idx(n/2, 0)},
+		{"北门", Pt{cx, cy - S}, Pt{0, -1}, idx(0, n/2)},
+	} {
+		c.Gates = append(c.Gates, Gate{Name: g.name, Mid: g.mid, Label: g.mid.add(g.out.mul(38)), Cell: g.cell})
+	}
+	// 街道：十字大道 + 环城道
+	c.Roads = append(c.Roads,
+		[]Pt{{cx, cy - S}, {cx, cy + S}},
+		[]Pt{{cx - S, cy}, {cx + S, cy}})
+	in := S - cell
+	c.Ring = []Pt{{cx - in, cy - in}, {cx + in, cy - in}, {cx + in, cy + in}, {cx - in, cy + in}}
+	// 派坊：衙署居北中（唐长安皇城位），东西两市对峙，寺、学、园、驿按角安置
+	put := func(r, col int, w Ward) { c.Wards[idx(r, col)] = w }
+	put(0, n/2, Ward{"衙署", c.Name[:len(c.Name)-len("城")] + "县衙", "#e0b096"})
+	put(n/2, n-1, Ward{"市集", "东市", "#f2d894"})
+	put(n/2, 0, Ward{"市集", "西市", "#f2d894"})
+	put(n-1, 0, Ward{"寺庙", templeNames[rng.Intn(len(templeNames))], "#ecd3a0"})
+	put(n-1, n-1, Ward{"学宫", "明伦学宫", "#dde0bd"})
+	gardens := append([]string(nil), gardenNames...)
+	rng.Shuffle(len(gardens), func(i, j int) { gardens[i], gardens[j] = gardens[j], gardens[i] })
+	put(0, 0, Ward{"园林", gardens[0], "#bccf9d"})
+	put(n-1, n/2, Ward{"园林", gardens[1], "#bccf9d"})
+	put(n/2, n-2, Ward{"驿站", "迎送驿", "#e8d2ac"})
+	fangs := append([]string(nil), fangNames...)
+	rng.Shuffle(len(fangs), func(i, j int) { fangs[i], fangs[j] = fangs[j], fangs[i] })
+	fi := 0
+	for _, i := range c.Inner {
+		if _, done := c.Wards[i]; !done {
+			c.Wards[i] = Ward{"民居", fangName(fangs, fi), "#f0e4c6"}
+			fi++
+		}
+	}
+	// 屋舍：民居/市集坊内撒小屋顶
+	for _, i := range c.Inner {
+		w := c.Wards[i]
+		if w.Kind != "民居" && w.Kind != "市集" {
+			continue
+		}
+		poly := c.Cells[i]
+		for t := 0; t < 34; t++ {
+			p := Pt{poly[0].X + rng.Float64()*cell, poly[0].Y + rng.Float64()*cell}
+			if dist(p, c.Cents[i]) < cell*0.24 {
+				continue
+			}
+			c.Buildings = append(c.Buildings, Building{p.X, p.Y,
+				5 + rng.Float64()*4, 3.5 + rng.Float64()*2, rng.Float64() * math.Pi})
+		}
+	}
+	// 城南河（与山水格局同一条规矩）
+	phase := rng.Float64() * 6.28
+	for x := 30.0; x <= c.W-30; x += 18 {
+		y := 852 + 30*math.Sin(x/180+phase) + 10*math.Sin(x/57+phase*2)
+		c.River = append(c.River, Pt{x, y})
+	}
+	addOutskirts(c)
 	return c
 }

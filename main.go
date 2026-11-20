@@ -28,25 +28,31 @@ func main() {
 	addr := flag.String("addr", ":8077", "网页服务监听地址")
 	seed := flag.Int64("seed", 20261120, "种子（同种子同城）")
 	size := flag.String("size", "city", "规模：town 小城 / city 中城 / capital 大城")
+	mode := flag.String("mode", "organic", "格局：organic 山水 / grid 棋盘")
 	out := flag.String("out", "", "把 SVG 写到该文件后退出")
 	check := flag.Bool("check", false, "自检同种子同城后退出")
 	flag.Parse()
 
 	if *check {
-		a := Generate(*seed, *size).SVG()
-		b := Generate(*seed, *size).SVG()
-		ha := sha256.Sum256([]byte(a))
-		hb := sha256.Sum256([]byte(b))
-		fmt.Printf("第 1 遍 sha256: %x\n第 2 遍 sha256: %x\n", ha, hb)
-		if ha == hb {
-			fmt.Println("自检通过：同一颗种子，两遍生成的城一字不差。")
+		okAll := true
+		for _, m := range []string{"organic", "grid"} {
+			a := GenerateMode(*seed, *size, m).SVG()
+			b := GenerateMode(*seed, *size, m).SVG()
+			ha, hb := sha256.Sum256([]byte(a)), sha256.Sum256([]byte(b))
+			fmt.Printf("[%s] 第 1 遍 sha256: %x\n[%s] 第 2 遍 sha256: %x\n", m, ha, m, hb)
+			if ha != hb {
+				okAll = false
+			}
+		}
+		if okAll {
+			fmt.Println("自检通过：两种格局下，同一颗种子两遍生成的城都一字不差。")
 			return
 		}
 		fmt.Println("自检失败：同种子生成结果不一致！")
 		os.Exit(1)
 	}
 	if *out != "" {
-		svg := Generate(*seed, *size).SVG()
+		svg := GenerateMode(*seed, *size, *mode).SVG()
 		if err := os.WriteFile(*out, []byte(svg), 0o644); err != nil {
 			log.Fatal(err)
 		}
@@ -68,7 +74,7 @@ func main() {
 		if err != nil {
 			s = 20261120
 		}
-		svg := Generate(s, r.URL.Query().Get("size")).SVG()
+		svg := GenerateMode(s, r.URL.Query().Get("size"), r.URL.Query().Get("mode")).SVG()
 		w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
 		_, _ = w.Write([]byte(svg))
 	})

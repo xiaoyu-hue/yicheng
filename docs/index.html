@@ -44,6 +44,12 @@
       <option value="capital">大城</option>
     </select>
   </label>
+  <label>格局
+    <select id="modeSel">
+      <option value="organic" selected>山水格局</option>
+      <option value="grid">棋盘格局</option>
+    </select>
+  </label>
   <button id="btnPNG" disabled>下载 PNG</button>
   <button id="btnSVG" disabled>下载 SVG</button>
   <button id="btnLink" disabled>复制城链接</button>
@@ -59,6 +65,7 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
   const stage = document.getElementById('stage');
   const seedInput = document.getElementById('seedInput');
   const sizeSel = document.getElementById('sizeSel');
+  const modeSel = document.getElementById('modeSel');
   const btns = ['btnNew','btnGo','btnPNG','btnSVG','btnLink'].map(id => document.getElementById(id));
   let curSeed = 20261120, curSVG = '';
 
@@ -67,26 +74,28 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
   const pSeed = parseInt(params.get('seed'), 10);
   if (!Number.isNaN(pSeed)) curSeed = pSeed;
   if (['town', 'city', 'capital'].includes(params.get('size'))) sizeSel.value = params.get('size');
+  if (params.get('mode') === 'grid') modeSel.value = 'grid';
 
   function syncURL() {
     try {
-      history.replaceState(null, '', location.pathname + '?seed=' + curSeed + '&size=' + sizeSel.value);
+      history.replaceState(null, '', location.pathname + '?seed=' + curSeed + '&size=' + sizeSel.value + '&mode=' + modeSel.value);
     } catch (e) { /* 个别浏览器环境不允许改地址，忽略 */ }
   }
 
-  function load(seed, size) {
+  function load(seed, size, mode) {
     curSeed = seed;
     seedInput.value = seed;
-    curSVG = window.generateCity(String(seed), size);
+    curSVG = window.generateCity(String(seed), size, mode);
     stage.innerHTML = curSVG;
     syncURL();
   }
-  document.getElementById('btnNew').onclick = () => load(Math.floor(Math.random() * 900000000) + 1, sizeSel.value);
+  document.getElementById('btnNew').onclick = () => load(Math.floor(Math.random() * 900000000) + 1, sizeSel.value, modeSel.value);
   document.getElementById('btnGo').onclick = () => {
     const v = parseInt(seedInput.value, 10);
-    if (!Number.isNaN(v)) load(v, sizeSel.value);
+    if (!Number.isNaN(v)) load(v, sizeSel.value, modeSel.value);
   };
-  sizeSel.onchange = () => load(curSeed, sizeSel.value);
+  sizeSel.onchange = () => load(curSeed, sizeSel.value, modeSel.value);
+  modeSel.onchange = () => load(curSeed, sizeSel.value, modeSel.value);
   document.getElementById('btnSVG').onclick = () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([curSVG], { type: 'image/svg+xml' }));
@@ -134,7 +143,7 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
     .then(result => {
       go.run(result.instance);
       btns.forEach(b => b.disabled = false);
-      load(curSeed, sizeSel.value);
+      load(curSeed, sizeSel.value, modeSel.value);
     })
     .catch(err => { stage.textContent = '建城引擎加载失败，请刷新页面重试。'; });
 </script>

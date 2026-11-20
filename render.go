@@ -51,6 +51,32 @@ func (c *City) SVG() string {
 		fmt.Fprintf(&b, `<polyline points="%s" fill="none" stroke="#968254" stroke-width="3" opacity="0.55"/>`, ptsAttr(bank))
 	}
 
+	// 城外田垄
+	for _, fd := range c.Fields {
+		fill := "#c2cf9a"
+		if fd.Tone == 1 {
+			fill = "#dcc98f"
+		}
+		fmt.Fprintf(&b, `<polygon points="%s" fill="%s" opacity="0.55"/>`, ptsAttr(fd.Poly), fill)
+	}
+
+	// 护城河：城界放大一圈成环；城门处架小桥
+	if len(c.Boundary) > 2 {
+		moat := make([]Pt, 0, len(c.Boundary)+1)
+		for _, p := range c.Boundary {
+			moat = append(moat, c.Center.add(p.sub(c.Center).mul(1.14)))
+		}
+		moat = append(moat, moat[0])
+		fmt.Fprintf(&b, `<polyline points="%s" fill="none" stroke="#9fbec2" stroke-width="17" opacity="0.75"/>`, ptsAttr(moat))
+		fmt.Fprintf(&b, `<polyline points="%s" fill="none" stroke="#b7d2d4" stroke-width="10" opacity="0.75"/>`, ptsAttr(moat))
+		for _, g := range c.Gates {
+			a := c.Center.add(g.Mid.sub(c.Center).mul(1.02))
+			d := c.Center.add(g.Mid.sub(c.Center).mul(1.3))
+			fmt.Fprintf(&b, `<line x1="%s" y1="%s" x2="%s" y2="%s" stroke="#dcc491" stroke-width="13"/>`,
+				f1(a.X), f1(a.Y), f1(d.X), f1(d.Y))
+		}
+	}
+
 	// 地面与坊
 	fmt.Fprintf(&b, `<polygon points="%s" fill="#eadfc0"/>`, ptsAttr(c.Boundary))
 	for _, i := range c.Inner {
@@ -62,6 +88,15 @@ func (c *City) SVG() string {
 	// 屋舍
 	b.WriteString(`<g fill="#926646" opacity="0.6">`)
 	for _, bd := range c.Buildings {
+		fmt.Fprintf(&b, `<g transform="translate(%s %s) rotate(%s)"><rect x="%s" y="%s" width="%s" height="%s"/></g>`,
+			f1(bd.CX), f1(bd.CY), f1(bd.Ang*180/math.Pi),
+			f1(-bd.HW), f1(-bd.HH), f1(2*bd.HW), f1(2*bd.HH))
+	}
+	b.WriteString(`</g>`)
+
+	// 城外村落屋舍
+	b.WriteString(`<g fill="#926646" opacity="0.5">`)
+	for _, bd := range c.Villages {
 		fmt.Fprintf(&b, `<g transform="translate(%s %s) rotate(%s)"><rect x="%s" y="%s" width="%s" height="%s"/></g>`,
 			f1(bd.CX), f1(bd.CY), f1(bd.Ang*180/math.Pi),
 			f1(-bd.HW), f1(-bd.HH), f1(2*bd.HW), f1(2*bd.HH))
@@ -111,7 +146,7 @@ func (c *City) SVG() string {
 
 	// 标题、指北针、落款、画框
 	fmt.Fprintf(&b, `<text x="56" y="86" font-family="serif" font-size="46" font-weight="bold" fill="#3d2c17">%s</text>`, c.Name)
-	fmt.Fprintf(&b, `<text x="58" y="118" font-family="serif" font-size="19" fill="#6d5836">一键成城 · 种子 %d · %s</text>`, c.Seed, c.SizeLabel)
+	fmt.Fprintf(&b, `<text x="58" y="118" font-family="serif" font-size="19" fill="#6d5836">一键成城 · 种子 %d · %s · %s</text>`, c.Seed, c.SizeLabel, c.ModeLabel)
 	b.WriteString(`<text x="1222" y="66" font-family="serif" font-size="22" font-weight="bold" fill="#3d2c17" text-anchor="middle">北</text>`)
 	b.WriteString(`<polygon points="1222,78 1214,98 1230,98" fill="#3d2c17"/>`)
 	n := int64(len(captions))

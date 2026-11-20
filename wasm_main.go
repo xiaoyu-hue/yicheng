@@ -20,7 +20,11 @@ func main() {
 		if err != nil {
 			seed = 20261120
 		}
-		return Generate(seed, args[1].String()).SVG()
+		mode := "organic"
+		if len(args) > 2 {
+			mode = args[2].String()
+		}
+		return GenerateMode(seed, args[1].String(), mode).SVG()
 	}))
 	select {} // 常驻，等待页面调用
 }
