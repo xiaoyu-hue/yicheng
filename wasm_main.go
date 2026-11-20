@@ -61,5 +61,12 @@ func main() {
 		}
 		return renderRecord(seed, size, mode, theme)
 	}))
+	js.Global().Set("generateScene", js.FuncOf(func(this js.Value, args []js.Value) any {
+		seed, size, mode, theme, ok := parse(args)
+		if !ok {
+			return "{}"
+		}
+		return renderScene(seed, size, mode, theme)
+	}))
 	select {} // 常驻，等待页面调用
 }

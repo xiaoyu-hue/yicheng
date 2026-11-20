@@ -11,7 +11,10 @@ import (
 	"sort"
 )
 
-type Pt struct{ X, Y float64 }
+type Pt struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
 
 func (a Pt) add(b Pt) Pt      { return Pt{a.X + b.X, a.Y + b.Y} }
 func (a Pt) sub(b Pt) Pt      { return Pt{a.X - b.X, a.Y - b.Y} }

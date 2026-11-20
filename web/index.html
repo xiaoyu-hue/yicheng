@@ -23,6 +23,7 @@
   .stage .frame { border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#e7d9b8; }
   .stage svg { display:block; width:100%; height:auto; }
   .hint { max-width:1080px; margin:0 auto 26px; padding:0 16px; color:var(--sub); font-size:14px; line-height:1.7; }
+  #stage3d canvas { display: block; width: 100%; }
   #recordLine { max-width:1080px; margin:0 auto; padding:0 16px; text-align:center; color:var(--sub); font-size:15px; }
   #statsLine { max-width:1080px; margin:4px auto 10px; padding:0 16px; text-align:center; color:#96835f; font-size:13px; }
 </style>
@@ -65,15 +66,21 @@
   <button id="btnSVG">下载 SVG</button>
   <button id="btnPoster">下载海报</button>
   <button id="btnLink">复制城链接</button>
+  <button id="btn2d" class="primary">平面图</button>
+  <button id="btn3d">立体沙盘</button>
 </div>
 
-<div class="stage"><div class="frame" id="stage">正在建城…</div></div>
+<div class="stage" id="stage2dWrap"><div class="frame" id="stage">正在建城…</div></div>
+<div class="stage" id="stage3dWrap" hidden><div class="frame"><div id="stage3d"></div><p id="note3d" hidden style="text-align:center;color:#6d5836;padding:26px 12px;margin:0">郡图沙盘在路上——先切回平面图看郡；单城三种格局都可以立体看。</p></div></div>
 <p id="recordLine"></p>
 <p id="statsLine"></p>
 
 <p class="hint">玩法：种子就是一座城的身份证——点「复制城链接」把当前这座城的链接发给朋友，对方点开看到的城和你一模一样。
 SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（适合发朋友圈）。所有生成都在你本机完成，不上传任何数据。</p>
 
+<script src="three.min.js"></script>
+<script src="orbit-controls.js"></script>
+<script src="scene3d.js"></script>
 <script>
   const stage = document.getElementById('stage');
   const seedInput = document.getElementById('seedInput');
@@ -119,7 +126,40 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
       statsLine.textContent = rec.stats.map(s => s[0] + ' ' + s[1]).join(' · ');
     } catch (e) { /* 城谱拿不到不影响看图 */ }
     syncURL();
+    if (view3d) refresh3d();
   }
+
+  // —— 立体沙盘（5.0）——
+  let viewer = null, view3d = false;
+  const wrap3d = document.getElementById('stage3dWrap');
+  const stage3dEl = document.getElementById('stage3d');
+  const note3d = document.getElementById('note3d');
+  function ensureViewer() {
+    if (viewer || !window.THREE || !window.YC3D) return viewer;
+    viewer = YC3D.createViewer(THREE, stage3dEl, async () => {
+      const q = '?seed=' + encodeURIComponent(curSeed) + '&size=' + encodeURIComponent(sizeSel.value) + '&mode=' + encodeURIComponent(modeSel.value) + '&theme=' + encodeURIComponent(themeSel.value);
+      return await (await fetch('/api/scene' + q)).json();
+    });
+    return viewer;
+  }
+  async function refresh3d() {
+    const v = ensureViewer();
+    if (!v) { note3d.textContent = '立体引擎加载失败，请刷新页面重试。'; note3d.hidden = false; return; }
+    const r = await v.refresh();
+    note3d.hidden = r !== 'region';
+    stage3dEl.style.display = r === 'region' ? 'none' : '';
+  }
+  function setView(v3) {
+    view3d = v3;
+    document.getElementById('btn2d').classList.toggle('primary', !v3);
+    document.getElementById('btn3d').classList.toggle('primary', v3);
+    document.getElementById('stage2dWrap').hidden = v3;
+    wrap3d.hidden = !v3;
+    if (viewer) viewer.setVisible(v3);
+    if (v3) refresh3d();
+  }
+  document.getElementById('btn2d').onclick = () => setView(false);
+  document.getElementById('btn3d').onclick = () => setView(true);
   document.getElementById('btnNew').onclick = () => load(Math.floor(Math.random() * 900000000) + 1, sizeSel.value, modeSel.value, themeSel.value);
   document.getElementById('btnGo').onclick = () => {
     const v = parseInt(seedInput.value, 10);

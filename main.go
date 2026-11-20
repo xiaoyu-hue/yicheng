@@ -24,6 +24,15 @@ import (
 //go:embed web/index.html
 var indexHTML []byte
 
+//go:embed web/three.min.js
+var threeJS []byte
+
+//go:embed web/orbit-controls.js
+var orbitJS []byte
+
+//go:embed web/scene3d.js
+var sceneJS []byte
+
 func main() {
 	addr := flag.String("addr", ":8077", "网页服务监听地址")
 	seed := flag.Int64("seed", 20261120, "种子（同种子同城）")
@@ -31,6 +40,7 @@ func main() {
 	mode := flag.String("mode", "organic", "格局：organic 山水 / grid 棋盘 / water 水乡 / region 一郡之地")
 	theme := flag.String("theme", "", "皮肤：空 宣纸 / spring 春 / autumn 秋 / winter 冬 / night 夜")
 	poster := flag.Bool("poster", false, "配合 -out：导出竖版海报（含城谱）而非地图")
+	scene := flag.Bool("scene", false, "配合 -out：导出立体沙盘的场景 JSON 而非地图")
 	out := flag.String("out", "", "把 SVG 写到该文件后退出")
 	check := flag.Bool("check", false, "自检同种子同城后退出")
 	flag.Parse()
@@ -66,6 +76,9 @@ func main() {
 		if *poster {
 			svg = renderPoster(*seed, *size, *mode, *theme)
 		}
+		if *scene {
+			svg = renderScene(*seed, *size, *mode, *theme)
+		}
 		if err := os.WriteFile(*out, []byte(svg), 0o644); err != nil {
 			log.Fatal(err)
 		}
@@ -81,6 +94,20 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(indexHTML)
+	})
+	for path, blob := range map[string][]byte{
+		"/three.min.js": threeJS, "/orbit-controls.js": orbitJS, "/scene3d.js": sceneJS,
+	} {
+		blob := blob
+		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+			_, _ = w.Write(blob)
+		})
+	}
+	mux.HandleFunc("/api/scene", func(w http.ResponseWriter, r *http.Request) {
+		s, _ := strconv.ParseInt(r.URL.Query().Get("seed"), 10, 64)
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		fmt.Fprint(w, renderScene(s, r.URL.Query().Get("size"), r.URL.Query().Get("mode"), r.URL.Query().Get("theme")))
 	})
 	mux.HandleFunc("/api/poster", func(w http.ResponseWriter, r *http.Request) {
 		s, _ := strconv.ParseInt(r.URL.Query().Get("seed"), 10, 64)
