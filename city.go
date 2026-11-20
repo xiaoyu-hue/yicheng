@@ -47,6 +47,7 @@ type City struct {
 	ModeLabel  string
 	Theme      string // 渲染主题（皮肤）："" 宣纸 / spring 春 / autumn 秋 / winter 冬 / night 夜
 	ThemeLabel string
+	Plain      bool   // 素面形态（4.0 郡图缩印用）：渲染时只画城本身
 	Name       string // 城名，如「沧澜城」
 	W, H       float64
 	Center     Pt

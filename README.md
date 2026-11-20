@@ -20,6 +20,7 @@
 | 种子链接 | 网址自带种子与规模参数，「复制城链接」一键分享，朋友点开直达那座城 |
 | 三种规模 | 小城 / 中城 / 大城，坊数与街网密度随规模变化 |
 | 三种格局 | 山水（有机坊界、顺势筑城）、棋盘（长安风：方正城墙、十字大道）、水乡（运河穿城、桥多船多、水市码头），一键切换 |
+| 一郡之地 | 镜头拉远：一张图生成一郡——郡城＋3~5 座辖县＋村镇，大河横贯、官道相连、过河架桥，每座城都是真生成再缩印入图 |
 | 护城河与城外景 | 护城河环城、门外有桥，城外散布田垄与村落——城不再是孤岛 |
 | 四季皮肤 | 宣纸之外可换春 / 秋 / 冬 / 夜四套配色，只换色板不换布局，分享图花样翻倍 |
 | 完整城建 | 城墙与四座城门、门到城心的大道、环城道、坊市分区（县衙、市集、寺庙、学宫、园林、驿站、民居坊），城南有河 |
@@ -55,7 +56,7 @@ go run .          # 打开 http://localhost:8080
 | `-addr` | 本地服务监听地址（默认 `:8080`） | `go run . -addr :9000` |
 | `-seed` | 导出指定种子的城（配合 `-out`，不启动服务） | `go run . -seed 42 -out city.svg` |
 | `-size` | 规模：`town` 小城 / `city` 中城（默认）/ `capital` 大城 | `go run . -seed 42 -size capital -out big.svg` |
-| `-mode` | 格局：`organic` 山水（默认）/ `grid` 棋盘 / `water` 水乡 | `go run . -seed 42 -mode grid -out grid.svg` |
+| `-mode` | 格局：`organic` 山水（默认）/ `grid` 棋盘 / `water` 水乡 / `region` 一郡之地 | `go run . -seed 42 -mode grid -out grid.svg` |
 | `-theme` | 皮肤：空 宣纸（默认）/ `spring` 春 / `autumn` 秋 / `winter` 冬 / `night` 夜 | `go run . -seed 42 -theme night -out night.svg` |
 | `-out` | 导出 SVG 到文件 | 见上 |
 | `-check` | 自检：同种子生成两遍并比对哈希，一致则输出 OK | `go run . -check` |

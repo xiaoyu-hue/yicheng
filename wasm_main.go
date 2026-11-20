@@ -28,7 +28,7 @@ func main() {
 		if len(args) > 3 {
 			theme = args[3].String()
 		}
-		return GenerateFull(seed, args[1].String(), mode, theme).SVG()
+		return renderRequest(seed, args[1].String(), mode, theme)
 	}))
 	select {} // 常驻，等待页面调用
 }

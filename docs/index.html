@@ -49,6 +49,7 @@
       <option value="organic" selected>山水格局</option>
       <option value="grid">棋盘格局</option>
       <option value="water">水乡格局</option>
+      <option value="region">一郡之地</option>
     </select>
   </label>
   <label>皮肤
@@ -85,7 +86,14 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
   const pSeed = parseInt(params.get('seed'), 10);
   if (!Number.isNaN(pSeed)) curSeed = pSeed;
   if (['town', 'city', 'capital'].includes(params.get('size'))) sizeSel.value = params.get('size');
-  if (['grid', 'water'].includes(params.get('mode'))) modeSel.value = params.get('mode');
+  if (['grid', 'water', 'region'].includes(params.get('mode'))) modeSel.value = params.get('mode');
+  const sizeNamesCity = ['小城', '中城', '大城'];
+  const sizeNamesRegion = ['小郡 · 3 县', '中郡 · 4 县', '大郡 · 5 县'];
+  function syncSizeLabels() {
+    const names = modeSel.value === 'region' ? sizeNamesRegion : sizeNamesCity;
+    [...sizeSel.options].forEach((o, i) => { o.textContent = names[i]; });
+  }
+  syncSizeLabels();
   if (['spring', 'autumn', 'winter', 'night'].includes(params.get('theme'))) themeSel.value = params.get('theme');
 
   function syncURL() {
@@ -107,7 +115,7 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
     if (!Number.isNaN(v)) load(v, sizeSel.value, modeSel.value, themeSel.value);
   };
   sizeSel.onchange = () => load(curSeed, sizeSel.value, modeSel.value, themeSel.value);
-  modeSel.onchange = () => load(curSeed, sizeSel.value, modeSel.value, themeSel.value);
+  modeSel.onchange = () => { syncSizeLabels(); load(curSeed, sizeSel.value, modeSel.value, themeSel.value); };
   themeSel.onchange = () => load(curSeed, sizeSel.value, modeSel.value, themeSel.value);
   document.getElementById('btnSVG').onclick = () => {
     const a = document.createElement('a');

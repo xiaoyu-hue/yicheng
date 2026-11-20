@@ -4,6 +4,7 @@ package main
 // 文字在 SVG 里以文本形式存在，由浏览器/看图软件用本机字体渲染，图更清晰。
 // 配色由主题（皮肤）决定：默认「宣纸」与最初版本一致；春/秋/冬/夜只换色板，
 // 不改任何几何与文字——同种子换皮肤，城的布局不变。
+// City.Plain（素面）形态供郡图缩印：只画城本身，不带纸面、标题与城外景。
 
 import (
 	"fmt"
@@ -93,7 +94,7 @@ var palettes = map[string]palette{
 	},
 }
 
-// segInt 两线段求交点（水乡架桥用）。
+// segInt 两线段求交点（水乡架桥、郡图架桥用）。
 func segInt(a, b, c, d Pt) (Pt, bool) {
 	r := b.sub(a)
 	s := d.sub(c)
@@ -118,22 +119,30 @@ func palFor(theme string) palette {
 
 // SVG 渲染整座城为一张 1280×960 的 SVG 图。
 func (c *City) SVG() string {
-	p := palFor(c.Theme)
 	var b strings.Builder
 	b.WriteString(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 960" width="1280" height="960">`)
-	fmt.Fprintf(&b, `<rect width="1280" height="960" fill="%s"/>`, p.paper)
+	b.WriteString(c.bodySVG(palFor(c.Theme)))
+	b.WriteString(`</svg>`)
+	return b.String()
+}
 
-	// 纸纹斑点（独立种子源，与城市生成互不干扰）
-	prng := rand.New(rand.NewSource(c.Seed ^ 0xBEEF))
-	for i := 0; i < 260; i++ {
-		x, y := prng.Float64()*1280, prng.Float64()*960
-		r := 8 + prng.Float64()*34
-		fmt.Fprintf(&b, `<ellipse cx="%s" cy="%s" rx="%s" ry="%s" fill="%s" opacity="0.05"/>`,
-			f1(x), f1(y), f1(r), f1(r), p.spot)
+// bodySVG 城市的主体图元（不含 <svg> 外壳），郡图缩印时也用它。
+func (c *City) bodySVG(p palette) string {
+	var b strings.Builder
+	if !c.Plain {
+		fmt.Fprintf(&b, `<rect width="1280" height="960" fill="%s"/>`, p.paper)
+		// 纸纹斑点（独立种子源，与城市生成互不干扰）
+		prng := rand.New(rand.NewSource(c.Seed ^ 0xBEEF))
+		for i := 0; i < 260; i++ {
+			x, y := prng.Float64()*1280, prng.Float64()*960
+			r := 8 + prng.Float64()*34
+			fmt.Fprintf(&b, `<ellipse cx="%s" cy="%s" rx="%s" ry="%s" fill="%s" opacity="0.05"/>`,
+				f1(x), f1(y), f1(r), f1(r), p.spot)
+		}
 	}
 
 	// 城南河
-	if len(c.River) > 1 {
+	if !c.Plain && len(c.River) > 1 {
 		fmt.Fprintf(&b, `<polyline points="%s" fill="none" stroke="%s" stroke-width="52"/>`, ptsAttr(c.River), p.riverO)
 		fmt.Fprintf(&b, `<polyline points="%s" fill="none" stroke="%s" stroke-width="36"/>`, ptsAttr(c.River), p.riverI)
 		bank := make([]Pt, len(c.River))
@@ -144,12 +153,14 @@ func (c *City) SVG() string {
 	}
 
 	// 城外田垄
-	for _, fd := range c.Fields {
-		fill := p.fieldA
-		if fd.Tone == 1 {
-			fill = p.fieldB
+	if !c.Plain {
+		for _, fd := range c.Fields {
+			fill := p.fieldA
+			if fd.Tone == 1 {
+				fill = p.fieldB
+			}
+			fmt.Fprintf(&b, `<polygon points="%s" fill="%s" opacity="0.55"/>`, ptsAttr(fd.Poly), fill)
 		}
-		fmt.Fprintf(&b, `<polygon points="%s" fill="%s" opacity="0.55"/>`, ptsAttr(fd.Poly), fill)
 	}
 
 	// 护城河：城界放大一圈成环；城门处架小桥
@@ -187,13 +198,15 @@ func (c *City) SVG() string {
 	b.WriteString(`</g>`)
 
 	// 城外村落屋舍
-	fmt.Fprintf(&b, `<g fill="%s" opacity="0.5">`, p.building)
-	for _, bd := range c.Villages {
-		fmt.Fprintf(&b, `<g transform="translate(%s %s) rotate(%s)"><rect x="%s" y="%s" width="%s" height="%s"/></g>`,
-			f1(bd.CX), f1(bd.CY), f1(bd.Ang*180/math.Pi),
-			f1(-bd.HW), f1(-bd.HH), f1(2*bd.HW), f1(2*bd.HH))
+	if !c.Plain {
+		fmt.Fprintf(&b, `<g fill="%s" opacity="0.5">`, p.building)
+		for _, bd := range c.Villages {
+			fmt.Fprintf(&b, `<g transform="translate(%s %s) rotate(%s)"><rect x="%s" y="%s" width="%s" height="%s"/></g>`,
+				f1(bd.CX), f1(bd.CY), f1(bd.Ang*180/math.Pi),
+				f1(-bd.HW), f1(-bd.HH), f1(2*bd.HW), f1(2*bd.HH))
+		}
+		b.WriteString(`</g>`)
 	}
-	b.WriteString(`</g>`)
 
 	// 街道：环城道 + 四条入城大道
 	if len(c.Ring) > 3 {
@@ -267,40 +280,45 @@ func (c *City) SVG() string {
 		}
 	}
 
-	// 城门：缺口 + 门楼 + 门名（标在墙外侧，避免被墙压住）
+	// 城门：缺口 + 门楼 + 门名（标在墙外侧，避免被墙压住；素面形态不标字）
 	for _, g := range c.Gates {
 		fmt.Fprintf(&b, `<circle cx="%s" cy="%s" r="9" fill="%s"/>`, f1(g.Mid.X), f1(g.Mid.Y), p.ground)
 		fmt.Fprintf(&b, `<rect x="%s" y="%s" width="22" height="14" fill="none" stroke="%s" stroke-width="3"/>`,
 			f1(g.Mid.X-11), f1(g.Mid.Y-7), p.wallD)
-		fmt.Fprintf(&b, `<text x="%s" y="%s" font-family="serif" font-size="19" font-weight="bold" fill="%s" text-anchor="middle">%s</text>`,
-			f1(g.Label.X), f1(g.Label.Y+6), p.gateText, g.Name)
-	}
-
-	// 坊名
-	for _, i := range c.Inner {
-		w := c.Wards[i]
-		size, weight := 17, "normal"
-		if w.Kind == "衙署" {
-			size, weight = 23, "bold"
+		if !c.Plain {
+			fmt.Fprintf(&b, `<text x="%s" y="%s" font-family="serif" font-size="19" font-weight="bold" fill="%s" text-anchor="middle">%s</text>`,
+				f1(g.Label.X), f1(g.Label.Y+6), p.gateText, g.Name)
 		}
-		fmt.Fprintf(&b, `<text x="%s" y="%s" font-family="serif" font-size="%d" font-weight="%s" fill="%s" text-anchor="middle" dominant-baseline="central">%s</text>`,
-			f1(c.Cents[i].X), f1(c.Cents[i].Y), size, weight, p.wardText, w.Name)
 	}
 
-	// 标题、指北针、落款、画框
-	subtitle := fmt.Sprintf("一键成城 · 种子 %d · %s · %s", c.Seed, c.SizeLabel, c.ModeLabel)
-	if c.ThemeLabel != "" {
-		subtitle += " · " + c.ThemeLabel
+	// 坊名（素面形态不标，郡图另有城名标注）
+	if !c.Plain {
+		for _, i := range c.Inner {
+			w := c.Wards[i]
+			size, weight := 17, "normal"
+			if w.Kind == "衙署" {
+				size, weight = 23, "bold"
+			}
+			fmt.Fprintf(&b, `<text x="%s" y="%s" font-family="serif" font-size="%d" font-weight="%s" fill="%s" text-anchor="middle" dominant-baseline="central">%s</text>`,
+				f1(c.Cents[i].X), f1(c.Cents[i].Y), size, weight, p.wardText, w.Name)
+		}
 	}
-	fmt.Fprintf(&b, `<text x="56" y="86" font-family="serif" font-size="46" font-weight="bold" fill="%s">%s</text>`, p.title, c.Name)
-	fmt.Fprintf(&b, `<text x="58" y="118" font-family="serif" font-size="19" fill="%s">%s</text>`, p.sub, subtitle)
-	fmt.Fprintf(&b, `<text x="1222" y="66" font-family="serif" font-size="22" font-weight="bold" fill="%s" text-anchor="middle">北</text>`, p.title)
-	fmt.Fprintf(&b, `<polygon points="1222,78 1214,98 1230,98" fill="%s"/>`, p.title)
-	n := int64(len(captions))
-	cap := captions[((c.Seed%n)+n)%n]
-	fmt.Fprintf(&b, `<text x="58" y="922" font-family="serif" font-size="18" fill="%s">%s</text>`, p.sub, cap)
-	fmt.Fprintf(&b, `<rect x="18" y="18" width="1244" height="924" fill="none" stroke="%s" stroke-width="3"/>`, p.frame)
-	fmt.Fprintf(&b, `<rect x="28" y="28" width="1224" height="904" fill="none" stroke="%s" stroke-width="1"/>`, p.frame)
-	b.WriteString(`</svg>`)
+
+	// 标题、指北针、落款、画框（素面形态不带）
+	if !c.Plain {
+		subtitle := fmt.Sprintf("一键成城 · 种子 %d · %s · %s", c.Seed, c.SizeLabel, c.ModeLabel)
+		if c.ThemeLabel != "" {
+			subtitle += " · " + c.ThemeLabel
+		}
+		fmt.Fprintf(&b, `<text x="56" y="86" font-family="serif" font-size="46" font-weight="bold" fill="%s">%s</text>`, p.title, c.Name)
+		fmt.Fprintf(&b, `<text x="58" y="118" font-family="serif" font-size="19" fill="%s">%s</text>`, p.sub, subtitle)
+		fmt.Fprintf(&b, `<text x="1222" y="66" font-family="serif" font-size="22" font-weight="bold" fill="%s" text-anchor="middle">北</text>`, p.title)
+		fmt.Fprintf(&b, `<polygon points="1222,78 1214,98 1230,98" fill="%s"/>`, p.title)
+		n := int64(len(captions))
+		cap := captions[((c.Seed%n)+n)%n]
+		fmt.Fprintf(&b, `<text x="58" y="922" font-family="serif" font-size="18" fill="%s">%s</text>`, p.sub, cap)
+		fmt.Fprintf(&b, `<rect x="18" y="18" width="1244" height="924" fill="none" stroke="%s" stroke-width="3"/>`, p.frame)
+		fmt.Fprintf(&b, `<rect x="28" y="28" width="1224" height="904" fill="none" stroke="%s" stroke-width="1"/>`, p.frame)
+	}
 	return b.String()
 }
