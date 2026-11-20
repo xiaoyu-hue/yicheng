@@ -30,6 +30,7 @@ func main() {
 	size := flag.String("size", "city", "规模：town 小城 / city 中城 / capital 大城")
 	mode := flag.String("mode", "organic", "格局：organic 山水 / grid 棋盘 / water 水乡 / region 一郡之地")
 	theme := flag.String("theme", "", "皮肤：空 宣纸 / spring 春 / autumn 秋 / winter 冬 / night 夜")
+	poster := flag.Bool("poster", false, "配合 -out：导出竖版海报（含城谱）而非地图")
 	out := flag.String("out", "", "把 SVG 写到该文件后退出")
 	check := flag.Bool("check", false, "自检同种子同城后退出")
 	flag.Parse()
@@ -62,6 +63,9 @@ func main() {
 	}
 	if *out != "" {
 		svg := renderRequest(*seed, *size, *mode, *theme)
+		if *poster {
+			svg = renderPoster(*seed, *size, *mode, *theme)
+		}
 		if err := os.WriteFile(*out, []byte(svg), 0o644); err != nil {
 			log.Fatal(err)
 		}
@@ -77,6 +81,17 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(indexHTML)
+	})
+	mux.HandleFunc("/api/poster", func(w http.ResponseWriter, r *http.Request) {
+		s, _ := strconv.ParseInt(r.URL.Query().Get("seed"), 10, 64)
+		svg := renderPoster(s, r.URL.Query().Get("size"), r.URL.Query().Get("mode"), r.URL.Query().Get("theme"))
+		w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+		fmt.Fprint(w, svg)
+	})
+	mux.HandleFunc("/api/record", func(w http.ResponseWriter, r *http.Request) {
+		s, _ := strconv.ParseInt(r.URL.Query().Get("seed"), 10, 64)
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		fmt.Fprint(w, renderRecord(s, r.URL.Query().Get("size"), r.URL.Query().Get("mode"), r.URL.Query().Get("theme")))
 	})
 	mux.HandleFunc("/api/city", func(w http.ResponseWriter, r *http.Request) {
 		s, err := strconv.ParseInt(r.URL.Query().Get("seed"), 10, 64)

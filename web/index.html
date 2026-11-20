@@ -23,6 +23,8 @@
   .stage .frame { border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#e7d9b8; }
   .stage svg { display:block; width:100%; height:auto; }
   .hint { max-width:1080px; margin:0 auto 26px; padding:0 16px; color:var(--sub); font-size:14px; line-height:1.7; }
+  #recordLine { max-width:1080px; margin:0 auto; padding:0 16px; text-align:center; color:var(--sub); font-size:15px; }
+  #statsLine { max-width:1080px; margin:4px auto 10px; padding:0 16px; text-align:center; color:#96835f; font-size:13px; }
 </style>
 </head>
 <body>
@@ -61,10 +63,13 @@
   </label>
   <button id="btnPNG">下载 PNG</button>
   <button id="btnSVG">下载 SVG</button>
+  <button id="btnPoster">下载海报</button>
   <button id="btnLink">复制城链接</button>
 </div>
 
 <div class="stage"><div class="frame" id="stage">正在建城…</div></div>
+<p id="recordLine"></p>
+<p id="statsLine"></p>
 
 <p class="hint">玩法：种子就是一座城的身份证——点「复制城链接」把当前这座城的链接发给朋友，对方点开看到的城和你一模一样。
 SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（适合发朋友圈）。所有生成都在你本机完成，不上传任何数据。</p>
@@ -98,13 +103,21 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
     } catch (e) { /* 个别浏览器环境不允许改地址，忽略 */ }
   }
 
+  const recordLine = document.getElementById('recordLine');
+  const statsLine = document.getElementById('statsLine');
   async function load(seed, size, mode, theme) {
     stage.textContent = '正在建城…';
-    const res = await fetch('/api/city?seed=' + encodeURIComponent(seed) + '&size=' + encodeURIComponent(size) + '&mode=' + encodeURIComponent(mode) + '&theme=' + encodeURIComponent(theme));
+    const q = '?seed=' + encodeURIComponent(seed) + '&size=' + encodeURIComponent(size) + '&mode=' + encodeURIComponent(mode) + '&theme=' + encodeURIComponent(theme);
+    const res = await fetch('/api/city' + q);
     curSVG = await res.text();
     curSeed = seed;
     seedInput.value = seed;
     stage.innerHTML = curSVG;
+    try {
+      const rec = await (await fetch('/api/record' + q)).json();
+      recordLine.textContent = rec.line;
+      statsLine.textContent = rec.stats.map(s => s[0] + ' ' + s[1]).join(' · ');
+    } catch (e) { /* 城谱拿不到不影响看图 */ }
     syncURL();
   }
   document.getElementById('btnNew').onclick = () => load(Math.floor(Math.random() * 900000000) + 1, sizeSel.value, modeSel.value, themeSel.value);
@@ -138,6 +151,25 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
       URL.revokeObjectURL(img.src);
     };
     img.src = URL.createObjectURL(new Blob([curSVG], { type: 'image/svg+xml' }));
+  };
+  document.getElementById('btnPoster').onclick = async () => {
+    const q = '?seed=' + encodeURIComponent(curSeed) + '&size=' + encodeURIComponent(sizeSel.value) + '&mode=' + encodeURIComponent(modeSel.value) + '&theme=' + encodeURIComponent(themeSel.value);
+    const poster = await (await fetch('/api/poster' + q)).text();
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas');
+      cv.width = 900; cv.height = 1350;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      cv.toBlob(bd => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(bd);
+        a.download = 'yicheng-poster-' + curSeed + '.png';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+      URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(new Blob([poster], { type: 'image/svg+xml' }));
   };
   document.getElementById('btnLink').onclick = async (ev) => {
     syncURL();

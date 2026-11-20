@@ -30,5 +30,36 @@ func main() {
 		}
 		return renderRequest(seed, args[1].String(), mode, theme)
 	}))
+	parse := func(args []js.Value) (int64, string, string, string, bool) {
+		if len(args) < 2 {
+			return 0, "", "", "", false
+		}
+		seed, err := strconv.ParseInt(args[0].String(), 10, 64)
+		if err != nil {
+			seed = 20261120
+		}
+		mode, theme := "organic", ""
+		if len(args) > 2 {
+			mode = args[2].String()
+		}
+		if len(args) > 3 {
+			theme = args[3].String()
+		}
+		return seed, args[1].String(), mode, theme, true
+	}
+	js.Global().Set("generatePoster", js.FuncOf(func(this js.Value, args []js.Value) any {
+		seed, size, mode, theme, ok := parse(args)
+		if !ok {
+			return ""
+		}
+		return renderPoster(seed, size, mode, theme)
+	}))
+	js.Global().Set("generateRecord", js.FuncOf(func(this js.Value, args []js.Value) any {
+		seed, size, mode, theme, ok := parse(args)
+		if !ok {
+			return "{}"
+		}
+		return renderRecord(seed, size, mode, theme)
+	}))
 	select {} // 常驻，等待页面调用
 }

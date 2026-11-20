@@ -129,7 +129,7 @@ func (c *City) SVG() string {
 // bodySVG 城市的主体图元（不含 <svg> 外壳），郡图缩印时也用它。
 func (c *City) bodySVG(p palette) string {
 	var b strings.Builder
-	if !c.Plain {
+	if !c.Plain && !c.NoChrome {
 		fmt.Fprintf(&b, `<rect width="1280" height="960" fill="%s"/>`, p.paper)
 		// 纸纹斑点（独立种子源，与城市生成互不干扰）
 		prng := rand.New(rand.NewSource(c.Seed ^ 0xBEEF))
@@ -304,8 +304,8 @@ func (c *City) bodySVG(p palette) string {
 		}
 	}
 
-	// 标题、指北针、落款、画框（素面形态不带）
-	if !c.Plain {
+	// 标题、指北针、落款、画框（素面/海报形态不带）
+	if !c.Plain && !c.NoChrome {
 		subtitle := fmt.Sprintf("一键成城 · 种子 %d · %s · %s", c.Seed, c.SizeLabel, c.ModeLabel)
 		if c.ThemeLabel != "" {
 			subtitle += " · " + c.ThemeLabel

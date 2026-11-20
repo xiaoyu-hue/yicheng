@@ -35,6 +35,7 @@ type Region struct {
 	SizeLabel  string
 	Theme      string
 	ThemeLabel string
+	NoChrome   bool // 无边框形态（4.1 海报用）：不带纸面与标题
 	Towns      []TownMark
 	Villages   []VillageMark
 	Rivers     [][]Pt
@@ -278,16 +279,25 @@ func GenerateRegion(seed int64, size, theme string) *Region {
 
 // SVG 渲染郡图（1280×960，与单城同幅、同纸面与画框）。
 func (r *Region) SVG() string {
-	p := palFor(r.Theme)
 	var b strings.Builder
 	b.WriteString(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 960" width="1280" height="960">`)
-	fmt.Fprintf(&b, `<rect width="1280" height="960" fill="%s"/>`, p.paper)
-	prng := rand.New(rand.NewSource(r.Seed ^ 0xBEEF))
-	for i := 0; i < 260; i++ {
-		x, y := prng.Float64()*1280, prng.Float64()*960
-		rr := 8 + prng.Float64()*34
-		fmt.Fprintf(&b, `<ellipse cx="%s" cy="%s" rx="%s" ry="%s" fill="%s" opacity="0.05"/>`,
-			f1(x), f1(y), f1(rr), f1(rr), p.spot)
+	b.WriteString(r.bodySVG(palFor(r.Theme)))
+	b.WriteString(`</svg>`)
+	return b.String()
+}
+
+// bodySVG 郡图的主体图元（不含 <svg> 外壳），海报排版时也用它。
+func (r *Region) bodySVG(p palette) string {
+	var b strings.Builder
+	if !r.NoChrome {
+		fmt.Fprintf(&b, `<rect width="1280" height="960" fill="%s"/>`, p.paper)
+		prng := rand.New(rand.NewSource(r.Seed ^ 0xBEEF))
+		for i := 0; i < 260; i++ {
+			x, y := prng.Float64()*1280, prng.Float64()*960
+			rr := 8 + prng.Float64()*34
+			fmt.Fprintf(&b, `<ellipse cx="%s" cy="%s" rx="%s" ry="%s" fill="%s" opacity="0.05"/>`,
+				f1(x), f1(y), f1(rr), f1(rr), p.spot)
+		}
 	}
 
 	// 田野
@@ -389,20 +399,21 @@ func (r *Region) SVG() string {
 			f1(v.At.X), f1(v.At.Y+27), p.wardText, v.Name)
 	}
 
-	// 标题、指北针、落款、画框
-	subtitle := fmt.Sprintf("一键成城 · 种子 %d · %s · 一郡之地", r.Seed, r.SizeLabel)
-	if r.ThemeLabel != "" {
-		subtitle += " · " + r.ThemeLabel
+	// 标题、指北针、落款、画框（海报形态不带）
+	if !r.NoChrome {
+		subtitle := fmt.Sprintf("一键成城 · 种子 %d · %s · 一郡之地", r.Seed, r.SizeLabel)
+		if r.ThemeLabel != "" {
+			subtitle += " · " + r.ThemeLabel
+		}
+		fmt.Fprintf(&b, `<text x="56" y="86" font-family="serif" font-size="46" font-weight="bold" fill="%s">%s</text>`, p.title, r.Name)
+		fmt.Fprintf(&b, `<text x="58" y="118" font-family="serif" font-size="19" fill="%s">%s</text>`, p.sub, subtitle)
+		fmt.Fprintf(&b, `<text x="1222" y="66" font-family="serif" font-size="22" font-weight="bold" fill="%s" text-anchor="middle">北</text>`, p.title)
+		fmt.Fprintf(&b, `<polygon points="1222,78 1214,98 1230,98" fill="%s"/>`, p.title)
+		n := int64(len(captions))
+		cap := captions[((r.Seed%n)+n)%n]
+		fmt.Fprintf(&b, `<text x="58" y="922" font-family="serif" font-size="18" fill="%s">%s</text>`, p.sub, cap)
+		fmt.Fprintf(&b, `<rect x="18" y="18" width="1244" height="924" fill="none" stroke="%s" stroke-width="3"/>`, p.frame)
+		fmt.Fprintf(&b, `<rect x="28" y="28" width="1224" height="904" fill="none" stroke="%s" stroke-width="1"/>`, p.frame)
 	}
-	fmt.Fprintf(&b, `<text x="56" y="86" font-family="serif" font-size="46" font-weight="bold" fill="%s">%s</text>`, p.title, r.Name)
-	fmt.Fprintf(&b, `<text x="58" y="118" font-family="serif" font-size="19" fill="%s">%s</text>`, p.sub, subtitle)
-	fmt.Fprintf(&b, `<text x="1222" y="66" font-family="serif" font-size="22" font-weight="bold" fill="%s" text-anchor="middle">北</text>`, p.title)
-	fmt.Fprintf(&b, `<polygon points="1222,78 1214,98 1230,98" fill="%s"/>`, p.title)
-	n := int64(len(captions))
-	cap := captions[((r.Seed%n)+n)%n]
-	fmt.Fprintf(&b, `<text x="58" y="922" font-family="serif" font-size="18" fill="%s">%s</text>`, p.sub, cap)
-	fmt.Fprintf(&b, `<rect x="18" y="18" width="1244" height="924" fill="none" stroke="%s" stroke-width="3"/>`, p.frame)
-	fmt.Fprintf(&b, `<rect x="28" y="28" width="1224" height="904" fill="none" stroke="%s" stroke-width="1"/>`, p.frame)
-	b.WriteString(`</svg>`)
 	return b.String()
 }
