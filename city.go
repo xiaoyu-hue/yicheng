@@ -64,6 +64,8 @@ type City struct {
 	Buildings  []Building
 	Fields     []Field    // 城外田垄（2.0）
 	Villages   []Building // 城外村落屋舍（2.0，借用 Building 形状）
+	Canals     [][]Pt     // 水乡运河（3.0，仅水乡格局）
+	Boats      []Building // 水乡的船（3.0，借用 Building 形状：中心＋朝向）
 }
 
 // ---------- 几何工具 ----------
@@ -140,6 +142,34 @@ func pointInPoly(p Pt, poly []Pt) bool {
 	return inside
 }
 
+// distPtSeg 点到线段的距离。
+func distPtSeg(p, a, b Pt) float64 {
+	ab := b.sub(a)
+	l2 := ab.X*ab.X + ab.Y*ab.Y
+	if l2 == 0 {
+		return dist(p, a)
+	}
+	t := ((p.X-a.X)*ab.X + (p.Y-a.Y)*ab.Y) / l2
+	if t < 0 {
+		t = 0
+	}
+	if t > 1 {
+		t = 1
+	}
+	return dist(p, a.add(ab.mul(t)))
+}
+
+// distToPolyline 点到折线的最短距离。
+func distToPolyline(p Pt, line []Pt) float64 {
+	best := math.Inf(1)
+	for i := 0; i+1 < len(line); i++ {
+		if d := distPtSeg(p, line[i], line[i+1]); d < best {
+			best = d
+		}
+	}
+	return best
+}
+
 // ---------- 名字库 ----------
 
 var cityHeads = []string{"沧澜", "临渊", "望舒", "安澜", "云津", "沐川", "长洲", "星泽", "清晏", "岱舆"}
@@ -161,6 +191,8 @@ func fangName(pool []string, k int) string {
 }
 
 var gardenNames = []string{"听雨园", "半亩园", "漱石园", "沧浪亭园", "怡园"}
+var waterNames = []string{"水市", "河市", "桥市", "津市"}
+var dockNames = []string{"南码头", "北码头", "东码头", "西码头"}
 var captions = []string{
 	"城外有河，城里有坊——每换一颗种子，就是一座新城。",
 	"城门四面，坊市井然；此城只存于这颗种子里。",
@@ -208,11 +240,21 @@ func normalizeTheme(theme string) (string, string) {
 	return "", ""
 }
 
-// GenerateMode 按格局生成：organic 山水 / grid 棋盘，其余值按山水处理。
+// GenerateMode 按格局生成：organic 山水 / grid 棋盘 / water 水乡，其余值按山水处理。
 func GenerateMode(seed int64, size, mode string) *City {
-	if mode == "grid" {
+	switch mode {
+	case "grid":
 		return generateGrid(seed, size)
+	case "water":
+		return generateOrganic(seed, size, true)
+	default:
+		return generateOrganic(seed, size, false)
 	}
+}
+
+// generateOrganic 有机坊界一系（山水与水乡共用）：
+// 水乡只在山水的基础上加运河、临水坊与船，其余流水线完全一致。
+func generateOrganic(seed int64, size string, water bool) *City {
 	spec, ok := sizeSpecs[size]
 	if !ok {
 		size, spec = "city", sizeSpecs["city"]
@@ -221,6 +263,9 @@ func GenerateMode(seed int64, size, mode string) *City {
 	c := &City{Seed: seed, Size: size, SizeLabel: spec.label, W: 1280, H: 960,
 		Center: Pt{640, 480}, R: spec.r, Wards: map[int]Ward{},
 		Mode: "organic", ModeLabel: "山水格局"}
+	if water {
+		c.Mode, c.ModeLabel = "water", "水乡格局"
+	}
 	c.Name = cityHeads[rng.Intn(len(cityHeads))] + "城"
 
 	// 1) 撒点：中心一点 + 若干环
@@ -433,6 +478,32 @@ func GenerateMode(seed int64, size, mode string) *City {
 		c.Ring = append(c.Ring, c.Cents[i])
 	}
 
+	// 4.5) 水乡运河（仅水乡格局）：主运河东西穿城，支渠自运河南下入河
+	var canalNear map[int]bool
+	var canalPhase float64
+	if water {
+		canalPhase = rng.Float64() * 6.28
+		var mainCanal []Pt
+		for x := c.Center.X - c.R*0.98; x <= c.Center.X+c.R*0.98; x += 16 {
+			y := c.Center.Y + math.Sin((x-c.Center.X)/95+canalPhase)*c.R*0.20
+			mainCanal = append(mainCanal, Pt{x, y})
+		}
+		bx := c.Center.X + c.R*(0.15+rng.Float64()*0.25)
+		baseY := c.Center.Y + math.Sin((bx-c.Center.X)/95+canalPhase)*c.R*0.20
+		ph2 := rng.Float64() * 6.28
+		var branch []Pt
+		for y := baseY; y <= 856; y += 16 {
+			branch = append(branch, Pt{bx + math.Sin(y/80+ph2)*14, y})
+		}
+		c.Canals = [][]Pt{mainCanal, branch}
+		canalNear = map[int]bool{}
+		for _, i := range c.Inner {
+			if distToPolyline(c.Cents[i], mainCanal) < 58 {
+				canalNear[i] = true
+			}
+		}
+	}
+
 	// 5) 派坊：按位置与规矩给每坊定身份与名字
 	sorted := append([]int(nil), c.Inner...)
 	sort.Slice(sorted, func(a, b int) bool {
@@ -475,8 +546,18 @@ func GenerateMode(seed int64, size, mode string) *City {
 	fangs := append([]string(nil), fangNames...)
 	rng.Shuffle(len(fangs), func(i, j int) { fangs[i], fangs[j] = fangs[j], fangs[i] })
 	fi := 0
+	wc := 0 // 临水坊计数（仅水乡格局用到）
 	for _, i := range c.Inner {
 		if _, done := c.Wards[i]; done {
+			continue
+		}
+		if water && canalNear[i] {
+			if wc%2 == 0 {
+				c.Wards[i] = Ward{"水市", waterNames[(wc/2)%len(waterNames)], "#9fc6bd"}
+			} else {
+				c.Wards[i] = Ward{"码头", dockNames[(wc/2)%len(dockNames)], "#cbb28a"}
+			}
+			wc++
 			continue
 		}
 		d := c.Cents[i].sub(c.Center)
@@ -525,6 +606,15 @@ func GenerateMode(seed int64, size, mode string) *City {
 			}
 			c.Buildings = append(c.Buildings, Building{p.X, p.Y,
 				5 + rng.Float64()*4, 3.5 + rng.Float64()*2, rng.Float64() * math.Pi})
+		}
+	}
+
+	// 6.5) 水乡的船（仅水乡格局）：沿主运河泊几艘
+	if water {
+		for i := 0; i < 6; i++ {
+			x := c.Center.X - c.R*0.88 + rng.Float64()*c.R*1.76
+			y := c.Center.Y + math.Sin((x-c.Center.X)/95+canalPhase)*c.R*0.20
+			c.Boats = append(c.Boats, Building{x, y, 10, 3.5, (rng.Float64() - 0.5) * 0.6})
 		}
 	}
 

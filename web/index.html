@@ -46,6 +46,7 @@
     <select id="modeSel">
       <option value="organic" selected>山水格局</option>
       <option value="grid">棋盘格局</option>
+      <option value="water">水乡格局</option>
     </select>
   </label>
   <label>皮肤
@@ -80,7 +81,7 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
   const pSeed = parseInt(params.get('seed'), 10);
   if (!Number.isNaN(pSeed)) curSeed = pSeed;
   if (['town', 'city', 'capital'].includes(params.get('size'))) sizeSel.value = params.get('size');
-  if (params.get('mode') === 'grid') modeSel.value = 'grid';
+  if (['grid', 'water'].includes(params.get('mode'))) modeSel.value = params.get('mode');
   if (['spring', 'autumn', 'winter', 'night'].includes(params.get('theme'))) themeSel.value = params.get('theme');
 
   function syncURL() {

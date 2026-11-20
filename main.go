@@ -28,7 +28,7 @@ func main() {
 	addr := flag.String("addr", ":8077", "网页服务监听地址")
 	seed := flag.Int64("seed", 20261120, "种子（同种子同城）")
 	size := flag.String("size", "city", "规模：town 小城 / city 中城 / capital 大城")
-	mode := flag.String("mode", "organic", "格局：organic 山水 / grid 棋盘")
+	mode := flag.String("mode", "organic", "格局：organic 山水 / grid 棋盘 / water 水乡")
 	theme := flag.String("theme", "", "皮肤：空 宣纸 / spring 春 / autumn 秋 / winter 冬 / night 夜")
 	out := flag.String("out", "", "把 SVG 写到该文件后退出")
 	check := flag.Bool("check", false, "自检同种子同城后退出")
@@ -36,7 +36,7 @@ func main() {
 
 	if *check {
 		okAll := true
-		for _, m := range []string{"organic", "grid"} {
+		for _, m := range []string{"organic", "grid", "water"} {
 			a := GenerateMode(*seed, *size, m).SVG()
 			b := GenerateMode(*seed, *size, m).SVG()
 			ha, hb := sha256.Sum256([]byte(a)), sha256.Sum256([]byte(b))
@@ -46,7 +46,7 @@ func main() {
 			}
 		}
 		if okAll {
-			fmt.Println("自检通过：两种格局下，同一颗种子两遍生成的城都一字不差。")
+			fmt.Println("自检通过：三种格局下，同一颗种子两遍生成的城都一字不差。")
 			return
 		}
 		fmt.Println("自检失败：同种子生成结果不一致！")

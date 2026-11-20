@@ -93,6 +93,22 @@ var palettes = map[string]palette{
 	},
 }
 
+// segInt 两线段求交点（水乡架桥用）。
+func segInt(a, b, c, d Pt) (Pt, bool) {
+	r := b.sub(a)
+	s := d.sub(c)
+	den := r.X*s.Y - r.Y*s.X
+	if math.Abs(den) < 1e-9 {
+		return Pt{}, false
+	}
+	t := ((c.X-a.X)*s.Y - (c.Y-a.Y)*s.X) / den
+	u := ((c.X-a.X)*r.Y - (c.Y-a.Y)*r.X) / den
+	if t >= 0 && t <= 1 && u >= 0 && u <= 1 {
+		return a.add(r.mul(t)), true
+	}
+	return Pt{}, false
+}
+
 func palFor(theme string) palette {
 	if p, ok := palettes[theme]; ok {
 		return p
@@ -187,6 +203,57 @@ func (c *City) SVG() string {
 	for _, road := range c.Roads {
 		fmt.Fprintf(&b, `<polyline points="%s" fill="none" stroke="%s" stroke-width="13"/>`, ptsAttr(road), p.road)
 		fmt.Fprintf(&b, `<polyline points="%s" fill="none" stroke="%s" stroke-width="1" opacity="0.4"/>`, ptsAttr(road), p.roadEdge)
+	}
+
+	// 水乡运河 + 桥 + 船（仅水乡格局有 Canals）
+	for _, canal := range c.Canals {
+		fmt.Fprintf(&b, `<polyline points="%s" fill="none" stroke="%s" stroke-width="17" stroke-linejoin="round"/>`, ptsAttr(canal), p.riverO)
+		fmt.Fprintf(&b, `<polyline points="%s" fill="none" stroke="%s" stroke-width="11" stroke-linejoin="round"/>`, ptsAttr(canal), p.riverI)
+	}
+	if len(c.Canals) > 0 {
+		var roadLines [][]Pt
+		roadLines = append(roadLines, c.Roads...)
+		if len(c.Ring) > 3 {
+			roadLines = append(roadLines, append(append([]Pt(nil), c.Ring...), c.Ring[0]))
+		}
+		var drawn []Pt
+		for _, canal := range c.Canals {
+			for ci := 0; ci+1 < len(canal); ci++ {
+				for _, rl := range roadLines {
+					for ri := 0; ri+1 < len(rl); ri++ {
+						at, ok := segInt(canal[ci], canal[ci+1], rl[ri], rl[ri+1])
+						if !ok {
+							continue
+						}
+						dupe := false
+						for _, q := range drawn {
+							if dist(at, q) < 20 {
+								dupe = true
+							}
+						}
+						if dupe {
+							continue
+						}
+						drawn = append(drawn, at)
+						dirv := rl[ri+1].sub(rl[ri])
+						l := math.Hypot(dirv.X, dirv.Y)
+						if l == 0 {
+							continue
+						}
+						dirv = dirv.mul(1 / l)
+						a, d := at.add(dirv.mul(-16)), at.add(dirv.mul(16))
+						fmt.Fprintf(&b, `<line x1="%s" y1="%s" x2="%s" y2="%s" stroke="%s" stroke-width="13"/>`,
+							f1(a.X), f1(a.Y), f1(d.X), f1(d.Y), p.road)
+						fmt.Fprintf(&b, `<line x1="%s" y1="%s" x2="%s" y2="%s" stroke="%s" stroke-width="1" opacity="0.4"/>`,
+							f1(a.X), f1(a.Y), f1(d.X), f1(d.Y), p.roadEdge)
+					}
+				}
+			}
+		}
+		for _, bt := range c.Boats {
+			fmt.Fprintf(&b, `<g transform="translate(%s %s) rotate(%s)"><path d="M-11,0 Q0,6 11,0 L7,-3.5 L-7,-3.5 Z" fill="#6e5136"/><rect x="-2.5" y="-6.5" width="5" height="4.5" fill="#8a6a48"/></g>`,
+				f1(bt.CX), f1(bt.CY), f1(bt.Ang*180/math.Pi))
+		}
 	}
 
 	// 城墙（双道线：深底 + 亮面）
