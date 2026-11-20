@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>一键成城 · 一键生成一座古城</title>
+<style>
+  :root { --ink:#3d2c17; --sub:#6d5836; --paper:#f3e9d2; --card:#efe3c8; --line:#8a734f; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Songti SC","STSong","SimSun",serif; background:var(--paper); color:var(--ink); }
+  header { max-width:1080px; margin:0 auto; padding:22px 16px 6px; }
+  h1 { margin:0; font-size:30px; letter-spacing:2px; }
+  header p { margin:6px 0 0; color:var(--sub); font-size:15px; }
+  .bar { max-width:1080px; margin:12px auto; padding:0 16px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  button, select, input { font-family:inherit; font-size:16px; color:var(--ink); background:var(--card);
+    border:1.5px solid var(--line); border-radius:8px; padding:8px 14px; }
+  button { cursor:pointer; }
+  button:hover { background:#e6d3a3; }
+  button.primary { background:#7d6750; color:#f7efdb; border-color:#5d4a35; }
+  button.primary:hover { background:#5d4a35; }
+  input[type=number] { width:150px; }
+  .stage { max-width:1080px; margin:6px auto 30px; padding:0 16px; }
+  .stage .frame { border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#e7d9b8; }
+  .stage svg { display:block; width:100%; height:auto; }
+  .hint { max-width:1080px; margin:0 auto 26px; padding:0 16px; color:var(--sub); font-size:14px; line-height:1.7; }
+</style>
+</head>
+<body>
+<header>
+  <h1>一键成城</h1>
+  <p>点一下，生成一座只属于这颗种子的古城：城墙、城门、街道、坊市，全是算出来的。</p>
+</header>
+
+<div class="bar">
+  <button class="primary" id="btnNew">换一座城</button>
+  <label>种子 <input type="number" id="seedInput"></label>
+  <button id="btnGo">按种子找城</button>
+  <label>规模
+    <select id="sizeSel">
+      <option value="town">小城</option>
+      <option value="city" selected>中城</option>
+      <option value="capital">大城</option>
+    </select>
+  </label>
+  <button id="btnPNG">下载 PNG</button>
+  <button id="btnSVG">下载 SVG</button>
+</div>
+
+<div class="stage"><div class="frame" id="stage">正在建城…</div></div>
+
+<p class="hint">玩法：种子就是一座城的身份证——把种子数字发给朋友，对方输入同一颗种子，看到的城和你一模一样。
+SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（适合发朋友圈）。所有生成都在你本机完成，不上传任何数据。</p>
+
+<script>
+  const stage = document.getElementById('stage');
+  const seedInput = document.getElementById('seedInput');
+  const sizeSel = document.getElementById('sizeSel');
+  let curSeed = 20261120, curSVG = '';
+
+  async function load(seed, size) {
+    stage.textContent = '正在建城…';
+    const res = await fetch('/api/city?seed=' + encodeURIComponent(seed) + '&size=' + encodeURIComponent(size));
+    curSVG = await res.text();
+    curSeed = seed;
+    seedInput.value = seed;
+    stage.innerHTML = curSVG;
+  }
+  document.getElementById('btnNew').onclick = () => load(Math.floor(Math.random() * 900000000) + 1, sizeSel.value);
+  document.getElementById('btnGo').onclick = () => {
+    const v = parseInt(seedInput.value, 10);
+    if (!Number.isNaN(v)) load(v, sizeSel.value);
+  };
+  sizeSel.onchange = () => load(curSeed, sizeSel.value);
+  document.getElementById('btnSVG').onclick = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([curSVG], { type: 'image/svg+xml' }));
+    a.download = 'yicheng-' + curSeed + '.svg';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  document.getElementById('btnPNG').onclick = () => {
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas');
+      cv.width = 2560; cv.height = 1920;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      cv.toBlob(bd => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(bd);
+        a.download = 'yicheng-' + curSeed + '.png';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+      URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(new Blob([curSVG], { type: 'image/svg+xml' }));
+  };
+  load(curSeed, sizeSel.value);
+</script>
+</body>
+</html>
