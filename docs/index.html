@@ -25,6 +25,7 @@
     min-height:200px; display:flex; align-items:center; justify-content:center; }
   .stage svg { display:block; width:100%; height:auto; }
   .hint { max-width:1080px; margin:0 auto 26px; padding:0 16px; color:var(--sub); font-size:14px; line-height:1.7; }
+  #stage3d { width: 100%; }
   #stage3d canvas { display: block; width: 100%; }
   #recordLine { max-width:1080px; margin:0 auto; padding:0 16px; text-align:center; color:var(--sub); font-size:15px; }
   #statsLine { max-width:1080px; margin:4px auto 10px; padding:0 16px; text-align:center; color:#96835f; font-size:13px; }
@@ -81,9 +82,9 @@
 SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（适合发朋友圈）。生成全部在你的浏览器里完成，不经过任何服务器。</p>
 
 <script src="wasm_exec.js"></script>
-<script src="three.min.js?v=5.0.3"></script>
-<script src="orbit-controls.js?v=5.0.3"></script>
-<script src="scene3d.js?v=5.0.3"></script>
+<script src="three.min.js?v=5.0.4"></script>
+<script src="orbit-controls.js?v=5.0.4"></script>
+<script src="scene3d.js?v=5.0.4"></script>
 <script>
   const stage = document.getElementById('stage');
   const seedInput = document.getElementById('seedInput');
@@ -230,7 +231,7 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
   };
 
   const go = new Go();
-  WebAssembly.instantiateStreaming(fetch('yicheng.wasm?v=5.0.3'), go.importObject)
+  WebAssembly.instantiateStreaming(fetch('yicheng.wasm?v=5.0.4'), go.importObject)
     .then(result => {
       go.run(result.instance);
       btns.forEach(b => b.disabled = false);

@@ -73,12 +73,12 @@
     g.add(ground);
 
     // 水系：城南河、运河、护城河
-    if (S.river && S.river.length > 1) g.add(ribbon(THREE, S.river, 56, C.water, 0.8, false, 0.35));
-    (S.canals || []).forEach(function (cn) { g.add(ribbon(THREE, cn, 18, C.water, 1.5, false, 0.35)); });
+    if (S.river && S.river.length > 1) g.add(ribbon(THREE, S.river, 56, C.water, 0.8, false, 0.5));
+    (S.canals || []).forEach(function (cn) { g.add(ribbon(THREE, cn, 18, C.water, 1.5, false, 0.5)); });
     var moat = S.boundary.map(function (p) {
       return { x: 640 + (p.x - 640) * 1.14, y: 480 + (p.y - 480) * 1.14 };
     });
-    g.add(ribbon(THREE, moat, 22, C.water, 0.8, true, 0.35));
+    g.add(ribbon(THREE, moat, 22, C.water, 0.8, true, 0.5));
 
     // 街道：环街与主街
     if (S.ring && S.ring.length > 3) g.add(ribbon(THREE, S.ring, 8, C.road, 1.2, true));
@@ -112,15 +112,27 @@
       }
     });
 
-    // 屋舍：小盒＋四坡小顶
+    // 屋舍：小盒＋四坡小顶，落在所在坊块的顶面上（不埋进坊块里）
+    function wardHeightAt(x, y) {
+      for (var wi = 0; wi < (S.wards || []).length; wi++) {
+        var p = S.wards[wi].poly, inside = false;
+        for (var i = 0, j = p.length - 1; i < p.length; j = i++) {
+          var xi = p[i].x, yi = p[i].y, xj = p[j].x, yj = p[j].y;
+          if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+        }
+        if (inside) return HEIGHTS[S.wards[wi].kind] || 7;
+      }
+      return 0;
+    }
     (S.buildings || []).forEach(function (bd) {
+      var baseY = wardHeightAt(bd.CX, bd.CY);
       var box = new THREE.Mesh(new THREE.BoxGeometry(bd.HW * 2, 8, bd.HH * 2), mat(C.building));
-      box.position.set(bd.CX - 640, 4, bd.CY - 480);
+      box.position.set(bd.CX - 640, baseY + 4, bd.CY - 480);
       box.rotation.y = -bd.Ang;
       box.castShadow = true;
       g.add(box);
       var roof = new THREE.Mesh(new THREE.ConeGeometry(bd.HW * 1.45, 5.6, 4), mat(C.roof));
-      roof.position.set(bd.CX - 640, 10.8, bd.CY - 480);
+      roof.position.set(bd.CX - 640, baseY + 10.8, bd.CY - 480);
       roof.rotation.y = Math.PI / 4 - bd.Ang;
       roof.scale.z = bd.HH / bd.HW;
       g.add(roof);
@@ -173,9 +185,9 @@
     controls.autoRotateSpeed = 1.2;
     controls.addEventListener('start', function () { controls.autoRotate = false; });
 
-    var hemi = new THREE.HemisphereLight(0xfff4e0, 0x8a7a5a, 0.95);
+    var hemi = new THREE.HemisphereLight(0xfff4e0, 0x8a7a5a, 0.72);
     scene.add(hemi);
-    var sun = new THREE.DirectionalLight(0xffe8c0, 0.85);
+    var sun = new THREE.DirectionalLight(0xffe8c0, 0.62);
     sun.position.set(420, 620, 240);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -195,6 +207,7 @@
     }
     if (global.ResizeObserver) new ResizeObserver(resize).observe(container);
     resize();
+    if (global.requestAnimationFrame) requestAnimationFrame(resize);
 
     (function loop() {
       requestAnimationFrame(loop);
@@ -211,8 +224,8 @@
           if (S.region) return 'region';
           scene.background = new THREE.Color(S.colors.paper);
           scene.fog = new THREE.Fog(S.colors.paper, 1200, 2600);
-          if (S.theme === 'night') { hemi.intensity = 0.5; sun.intensity = 0.45; }
-          else { hemi.intensity = 0.95; sun.intensity = 0.85; }
+          if (S.theme === 'night') { hemi.intensity = 0.42; sun.intensity = 0.38; }
+          else { hemi.intensity = 0.72; sun.intensity = 0.62; }
           if (group) scene.remove(group);
           group = buildCityGroup(THREE, S);
           scene.add(group);
