@@ -4,6 +4,8 @@
 
 城墙、城门、街道、坊市、寺庙、学宫、园林——全部由程序按「种子」现场算出：同一颗种子永远生成同一座城，换一颗种子，就是另一座城。把种子数字发给朋友，对方就能看到和你一模一样的那座城。
 
+**在线体验**：[xiaoyu-hue.github.io/yicheng](https://xiaoyu-hue.github.io/yicheng/) —— 手机、电脑打开就能玩，生成全在浏览器里完成。
+
 ![一键成城生成的古城图](docs/sample.png)
 
 ## 玩法
@@ -29,6 +31,12 @@ go run .            # 打开 http://localhost:8077
 ```bash
 go run . -seed 42 -out city.svg   # 把种子 42 的城导出为 SVG
 go run . -check                   # 自检：同种子生成两遍，比对哈希
+```
+
+网页版在 `docs/` 目录（GitHub Pages 站点）：生成核心经 WebAssembly 编译后在浏览器运行，入口是 `wasm_main.go`。改完核心后重新构建网页版：
+
+```bash
+GOOS=js GOARCH=wasm go build -o docs/yicheng.wasm .
 ```
 
 ## 它是怎么建城的

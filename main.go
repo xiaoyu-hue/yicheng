@@ -1,6 +1,8 @@
+//go:build !(js && wasm)
+
 package main
 
-// 一键成城 · 入口
+// 一键成城 · 入口（本地服务版；网页版入口在 wasm_main.go）
 // 用法：
 //   yicheng                 启动网页服务（默认 http://localhost:8077）
 //   yicheng -seed 42 -out city.svg   把一座城导出为 SVG 文件
