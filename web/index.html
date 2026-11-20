@@ -44,11 +44,12 @@
   </label>
   <button id="btnPNG">下载 PNG</button>
   <button id="btnSVG">下载 SVG</button>
+  <button id="btnLink">复制城链接</button>
 </div>
 
 <div class="stage"><div class="frame" id="stage">正在建城…</div></div>
 
-<p class="hint">玩法：种子就是一座城的身份证——把种子数字发给朋友，对方输入同一颗种子，看到的城和你一模一样。
+<p class="hint">玩法：种子就是一座城的身份证——点「复制城链接」把当前这座城的链接发给朋友，对方点开看到的城和你一模一样。
 SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（适合发朋友圈）。所有生成都在你本机完成，不上传任何数据。</p>
 
 <script>
@@ -57,6 +58,18 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
   const sizeSel = document.getElementById('sizeSel');
   let curSeed = 20261120, curSVG = '';
 
+  // 种子链接：网址带 ?seed= 与 &size=，打开链接直达那座城
+  const params = new URLSearchParams(location.search);
+  const pSeed = parseInt(params.get('seed'), 10);
+  if (!Number.isNaN(pSeed)) curSeed = pSeed;
+  if (['town', 'city', 'capital'].includes(params.get('size'))) sizeSel.value = params.get('size');
+
+  function syncURL() {
+    try {
+      history.replaceState(null, '', location.pathname + '?seed=' + curSeed + '&size=' + sizeSel.value);
+    } catch (e) { /* 个别浏览器环境不允许改地址，忽略 */ }
+  }
+
   async function load(seed, size) {
     stage.textContent = '正在建城…';
     const res = await fetch('/api/city?seed=' + encodeURIComponent(seed) + '&size=' + encodeURIComponent(size));
@@ -64,6 +77,7 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
     curSeed = seed;
     seedInput.value = seed;
     stage.innerHTML = curSVG;
+    syncURL();
   }
   document.getElementById('btnNew').onclick = () => load(Math.floor(Math.random() * 900000000) + 1, sizeSel.value);
   document.getElementById('btnGo').onclick = () => {
@@ -94,6 +108,22 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
       URL.revokeObjectURL(img.src);
     };
     img.src = URL.createObjectURL(new Blob([curSVG], { type: 'image/svg+xml' }));
+  };
+  document.getElementById('btnLink').onclick = async (ev) => {
+    syncURL();
+    const btn = ev.currentTarget;
+    try {
+      await navigator.clipboard.writeText(location.href);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = location.href;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => { btn.textContent = '复制城链接'; }, 1600);
   };
   load(curSeed, sizeSel.value);
 </script>

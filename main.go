@@ -16,6 +16,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
 	"strconv"
 )
 
@@ -70,6 +72,23 @@ func main() {
 		w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
 		_, _ = w.Write([]byte(svg))
 	})
-	log.Printf("一键成城已启动：http://localhost%s", *addr)
+	url := "http://localhost" + *addr
+	log.Printf("一键成城已启动：%s", url)
+	go openBrowser(url) // 双击运行时自动打开浏览器；打不开也不影响服务
 	log.Fatal(http.ListenAndServe(*addr, mux))
+}
+
+// openBrowser 尽力用系统默认浏览器打开页面，失败静默（无桌面环境时常见）。
+func openBrowser(url string) {
+	var cmd string
+	var args []string
+	switch runtime.GOOS {
+	case "windows":
+		cmd, args = "rundll32", []string{"url.dll,FileProtocolHandler", url}
+	case "darwin":
+		cmd, args = "open", []string{url}
+	default:
+		cmd, args = "xdg-open", []string{url}
+	}
+	_ = exec.Command(cmd, args...).Start()
 }
