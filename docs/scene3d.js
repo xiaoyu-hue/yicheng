@@ -5,7 +5,7 @@
 (function (global) {
   'use strict';
 
-  var HEIGHTS = { '民居': 7, '市集': 9, '衙署': 15, '寺庙': 13, '学宫': 11, '园林': 3, '驿站': 9, '水市': 7, '码头': 4 };
+  var HEIGHTS = { '民居': 12, '市集': 15, '衙署': 26, '寺庙': 22, '学宫': 19, '园林': 5, '驿站': 15, '水市': 12, '码头': 7 };
 
   function shapeFrom(THREE, poly) {
     var s = new THREE.Shape();
@@ -70,12 +70,12 @@
     g.add(ground);
 
     // 水系：城南河、运河、护城河
-    if (S.river && S.river.length > 1) g.add(ribbon(THREE, S.river, 46, C.water, 0.25, false));
-    (S.canals || []).forEach(function (cn) { g.add(ribbon(THREE, cn, 15, C.water, 0.55, false)); });
+    if (S.river && S.river.length > 1) g.add(ribbon(THREE, S.river, 56, C.water, 0.25, false));
+    (S.canals || []).forEach(function (cn) { g.add(ribbon(THREE, cn, 18, C.water, 0.55, false)); });
     var moat = S.boundary.map(function (p) {
       return { x: 640 + (p.x - 640) * 1.14, y: 480 + (p.y - 480) * 1.14 };
     });
-    g.add(ribbon(THREE, moat, 15, C.water, 0.25, true));
+    g.add(ribbon(THREE, moat, 22, C.water, 0.25, true));
 
     // 街道：环街与主街
     if (S.ring && S.ring.length > 3) g.add(ribbon(THREE, S.ring, 8, C.road, 0.4, true));
@@ -100,8 +100,8 @@
         });
         cx /= w.poly.length; cy /= w.poly.length;
         var rw = Math.max(maxx - minx, maxy - miny) * 0.34;
-        var roof = new THREE.Mesh(new THREE.ConeGeometry(rw, 10, 4), mat(C.roofBig));
-        roof.position.set(cx - 640, h + 5, cy - 480);
+        var roof = new THREE.Mesh(new THREE.ConeGeometry(rw, 16, 4), mat(C.roofBig));
+        roof.position.set(cx - 640, h + 8, cy - 480);
         roof.rotation.y = Math.PI / 4;
         roof.scale.z = Math.max(0.5, Math.min(1.6, (maxy - miny) / (maxx - minx || 1)));
         roof.castShadow = true;
@@ -111,13 +111,13 @@
 
     // 屋舍：小盒＋四坡小顶
     (S.buildings || []).forEach(function (bd) {
-      var box = new THREE.Mesh(new THREE.BoxGeometry(bd.HW * 2, 5, bd.HH * 2), mat(C.building));
-      box.position.set(bd.CX - 640, 2.5, bd.CY - 480);
+      var box = new THREE.Mesh(new THREE.BoxGeometry(bd.HW * 2, 8, bd.HH * 2), mat(C.building));
+      box.position.set(bd.CX - 640, 4, bd.CY - 480);
       box.rotation.y = -bd.Ang;
       box.castShadow = true;
       g.add(box);
-      var roof = new THREE.Mesh(new THREE.ConeGeometry(bd.HW * 1.45, 3.2, 4), mat(C.roof));
-      roof.position.set(bd.CX - 640, 6.6, bd.CY - 480);
+      var roof = new THREE.Mesh(new THREE.ConeGeometry(bd.HW * 1.45, 4.6, 4), mat(C.roof));
+      roof.position.set(bd.CX - 640, 10.3, bd.CY - 480);
       roof.rotation.y = Math.PI / 4 - bd.Ang;
       roof.scale.z = bd.HH / bd.HW;
       g.add(roof);
@@ -127,20 +127,20 @@
     (S.wallEdges || []).forEach(function (e) {
       var a = e[0], b = e[1];
       var len = Math.hypot(b.x - a.x, b.y - a.y);
-      var wall = new THREE.Mesh(new THREE.BoxGeometry(len + 2, 15, 5.5), mat(C.wall));
-      wall.position.set((a.x + b.x) / 2 - 640, 7.5, (a.y + b.y) / 2 - 480);
+      var wall = new THREE.Mesh(new THREE.BoxGeometry(len + 2, 24, 6.5), mat(C.wall));
+      wall.position.set((a.x + b.x) / 2 - 640, 12, (a.y + b.y) / 2 - 480);
       wall.rotation.y = -Math.atan2(b.y - a.y, b.x - a.x);
       wall.castShadow = true;
       wall.receiveShadow = true;
       g.add(wall);
     });
     (S.gates || []).forEach(function (gt) {
-      var tower = new THREE.Mesh(new THREE.BoxGeometry(17, 23, 17), mat(C.wallTop));
-      tower.position.set(gt.mid.x - 640, 11.5, gt.mid.y - 480);
+      var tower = new THREE.Mesh(new THREE.BoxGeometry(19, 34, 19), mat(C.wallTop));
+      tower.position.set(gt.mid.x - 640, 17, gt.mid.y - 480);
       tower.castShadow = true;
       g.add(tower);
-      var roof = new THREE.Mesh(new THREE.ConeGeometry(15, 7, 4), mat(C.roofBig));
-      roof.position.set(gt.mid.x - 640, 26.5, gt.mid.y - 480);
+      var roof = new THREE.Mesh(new THREE.ConeGeometry(17, 9, 4), mat(C.roofBig));
+      roof.position.set(gt.mid.x - 640, 38.5, gt.mid.y - 480);
       roof.rotation.y = Math.PI / 4;
       g.add(roof);
     });
@@ -158,7 +158,7 @@
 
     var scene = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera(42, 16 / 10, 1, 5000);
-    camera.position.set(120, 560, 780);
+    camera.position.set(140, 500, 720);
 
     var controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;

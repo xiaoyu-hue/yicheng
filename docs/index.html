@@ -144,6 +144,7 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
   async function refresh3d() {
     const v = ensureViewer();
     if (!v) { note3d.textContent = '立体引擎加载失败，请刷新页面重试。'; note3d.hidden = false; return; }
+    v.setVisible(true);
     const r = await v.refresh();
     note3d.hidden = r !== 'region';
     stage3dEl.style.display = r === 'region' ? 'none' : '';
