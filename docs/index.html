@@ -81,9 +81,9 @@
 SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（适合发朋友圈）。生成全部在你的浏览器里完成，不经过任何服务器。</p>
 
 <script src="wasm_exec.js"></script>
-<script src="three.min.js?v=5.0.2"></script>
-<script src="orbit-controls.js?v=5.0.2"></script>
-<script src="scene3d.js?v=5.0.2"></script>
+<script src="three.min.js?v=5.0.3"></script>
+<script src="orbit-controls.js?v=5.0.3"></script>
+<script src="scene3d.js?v=5.0.3"></script>
 <script>
   const stage = document.getElementById('stage');
   const seedInput = document.getElementById('seedInput');
@@ -230,7 +230,7 @@ SVG 是矢量图（放大不糊，适合打印装裱），PNG 是普通图片（
   };
 
   const go = new Go();
-  WebAssembly.instantiateStreaming(fetch('yicheng.wasm?v=5.0.2'), go.importObject)
+  WebAssembly.instantiateStreaming(fetch('yicheng.wasm?v=5.0.3'), go.importObject)
     .then(result => {
       go.run(result.instance);
       btns.forEach(b => b.disabled = false);

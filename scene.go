@@ -47,7 +47,7 @@ func renderScene(seed int64, size, mode, theme string) string {
 		Roads: c.Roads, Ring: c.Ring, River: c.River, Canals: c.Canals,
 		Buildings: c.Buildings, Fields: c.Fields,
 		Colors: map[string]string{
-			"paper": p.paper, "ground": p.ground, "water": p.riverI,
+			"paper": p.paper, "ground": p.ground, "water": p.riverO,
 			"wall": p.wallD, "wallTop": p.wallL, "road": p.road, "building": p.building,
 			"fieldA": p.fieldA, "fieldB": p.fieldB,
 			"roof": "#8a4a38", "roofBig": "#74382a",
